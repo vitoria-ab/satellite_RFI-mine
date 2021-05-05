@@ -7,3 +7,7 @@ Essentially this section looks at the work done by Dr. Jingying Wang for the Mee
 The code mianly requires the katdal container to run succesfully on ILIFU.
 
 All data is on ILIFU for the inputs and therefore all paths are focused on the data. NOTE that data requires user access. If so speak to Prof. Mario Santos 
+
+Files:
+wiggleZ_area.py - 
+data_reduction.py -
