@@ -1,3 +1,8 @@
+# This file looks at obstaining the time, positioning, frequency band of th data for various situations.
+# Noise diode pattern behaviour
+# The outputs here will be used in the following sections
+
+
 import katdal
 import numpy as np
 import pickle
