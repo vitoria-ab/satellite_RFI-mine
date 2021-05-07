@@ -10,6 +10,8 @@ import scipy.signal as ss
 import scipy as sp
 import copy                                                  # Required when using Nan values and py2
 from scipy.interpolate import Rbf
+# Personal file constucted
+from wiggleZ_area import area
 
 font = {'family': 'serif',
 'color':  'black',
@@ -137,8 +139,7 @@ class Data_reduction:
         
         fname = self.file_name
         
-    #     sys.path.insert(2, '..//../My_files/')
-        from wiggleZ_area import area
+        """Runs a the wiggleZ_area code in order to obtain the time positioning of the noise diodes"""
         area(fname)                                                                      # Calls a function to extract information from the data
 
         scan_time, scan_az, scan_el = np.load(fname+'_Time_Pos.npy')                     # Full "scan" time, Azimuth and Elevation positions
