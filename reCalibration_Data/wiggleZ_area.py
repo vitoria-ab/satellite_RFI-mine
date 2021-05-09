@@ -12,11 +12,14 @@ import scipy as sp
 import scipy.stats as stats
 import os.path
 
-def area(fname):
-    '''Requires the file name and produces the file with that name'''
+def area(fname, file_path):
+    '''
+    fname - Requires the file name and produces the file with that name
+    file_path - path where the output file should go
+    '''
     
     
-    if os.path.isfile(fname+'_Time_Pos.npy'):
+    if os.path.isfile(file_path+fname+'_Time_Pos.npy'):
         print ("Time Position-File exists")
     else:
         print ("Time Position-File does not exist, conjuring")
@@ -153,10 +156,10 @@ def area(fname):
         #saved = []
         #saved.append(n_times), saved.append(n_az), saved.append(n_el), saved.append(n_freqs), saved.append(timestamps) 
         
-        np.save(fname+'_Time_Pos', saved)
+        np.save(file_path+fname+'_Time_Pos', saved)
         print ('Time Position file created')
         
-    if os.path.isfile(fname+'_nd_S0.npy'):
+    if os.path.isfile(file_path+fname+'_nd_S0.npy'):
         print ("Noise Diode file exists")
     else:
         print ("Noise Diode file does not exist, conjuring")
@@ -401,7 +404,7 @@ def area(fname):
 
         saved[0], saved[1] = nd_s0, timestamps[nd_s0]
 
-        np.save(fname+'_nd_S0', saved)   
+        np.save(file_path+fname+'_nd_S0', saved)   
         print ('Noise Diode file conjured')
     
     print ('Done')
