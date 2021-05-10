@@ -29,6 +29,7 @@ class Data_reduction:
     def __init__(self,
                  folder_name = None,
                  file_name = None,
+                 folder_output=None,
                  obs_data_loc = '/idia/projects/hi_im/',
                  vis_data_loc = '/idia/projects/hi_im/raw_vis/',
                  gain_data_loc = '/idia/projects/hi_im/raw_vis/katcali_output/level3_output/'):
@@ -37,6 +38,8 @@ class Data_reduction:
                 self.folder_name = folder_name
                 
                 self.file_name = file_name
+
+                self.folder_output = folder_output
                 
                 self.vis_data_loc = vis_data_loc
                 
@@ -137,14 +140,15 @@ class Data_reduction:
         NOTE: this function is redundant, it's calling the .rdb file twice, must check again
         '''
         
+        
         fname = self.file_name
         
         """Runs a the wiggleZ_area code in order to obtain the time positioning of the noise diodes"""
-        area(fname)                                                                      # Calls a function to extract information from the data
+        area(fname=fname, file_path=self.folder_output)                                                     # Calls a function to extract information from the data
 
-        scan_time, scan_az, scan_el = np.load(fname+'_Time_Pos.npy')                     # Full "scan" time, Azimuth and Elevation positions
+        scan_time, scan_az, scan_el = np.load(self.folder_output+fname+'_Time_Pos.npy')                     # Full "scan" time, Azimuth and Elevation positions
 
-        nd_off_scan_data = np.load(fname+'_nd_S0.npy')                                   # Extracting the Noise diode "off" time and position
+        nd_off_scan_data = np.load(self.folder_output+fname+'_nd_S0.npy')                                   # Extracting the Noise diode "off" time and position
         nd_off_scan_pos, nd_off_scan = np.array(nd_off_scan_data[0], dtype='int64'), nd_off_scan_data[1]
 
         nd_off_in_st_pos = np.array([np.where(i==scan_time)[0][0] for i in nd_off_scan])         # Getting the position of the nd_0 in the scan time period
@@ -153,7 +157,7 @@ class Data_reduction:
         return nd_off_scan-int(fname), nd_off_scan_pos, scan_time-int(fname), (scan_az[nd_off_in_st_pos], scan_el[nd_off_in_st_pos])
     
  
-
+        
     def _conversion_rW_mK_(self, gain_map, visibility, antenna, pol, nd_off, frequency, c_start, c_end):
 
         fname = self.file_name
@@ -192,7 +196,7 @@ class Data_reduction:
         gain, visibility - gain data & visibility data respectivly 
         frequency - frequency [MHz]
         c_start, c_end - channel start and channel end for the data
-        frequency_choice - user input slection of where the data output should end
+        frequency_choice - user input selection of where the data output should end
         nd_off - the scan time 'position' where the noise diode should be off
         '''
         if frequency==None:
@@ -217,4 +221,3 @@ class Data_reduction:
         temperature_tod = temperature_tod[0:freq_end, :] * 1000   # Units now in [mK]
 
         return temperature_tod, bpass_hh, bpass_vv, freq_end, [temperature_hh, temperature_vv], [gain_time_mean_hh, gain_time_mean_vv]
-
