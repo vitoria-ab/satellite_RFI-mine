@@ -56,7 +56,7 @@ def gnss_satellites(name_gnss, frequency_gnss):
         return -1
 
     
-    data = pd.read_csv('table3B_satellite_v3.csv', header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+    data = pd.read_csv('Satellite_Catalogue/table3B_satellite_v3.csv', header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
 
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
