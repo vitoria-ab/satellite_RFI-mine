@@ -1,7 +1,7 @@
 # satellite_RFI
 2021/05/04 - Satellite RFI code for MeerKLASS
 
-The code setup is broken down into stages:
+The code setup is divided into three stages:
 
 Stage 1:
 Calibration of the MeerKLASS data
