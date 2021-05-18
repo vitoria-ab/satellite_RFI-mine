@@ -1,3 +1,7 @@
+Stage2: Positioning and angualr seperation of satellites from the MeerKAT beam
+
+Jupyter Notebook: Satellite_position.ipynb
+
 NOTE:
 - This data requires Dr Yi-Chao Lee's code {meerKAT_utils}
 
