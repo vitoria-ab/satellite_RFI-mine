@@ -17,6 +17,8 @@ Requirements to run:
 2. The "HI_IM PY2" container should be used to run.
 3. The observational data is stored currently at "/idia/projects/hi_im/brandon/<specific_folder_names>"
 
-Each folder has a unique README file with more details.
+Each sub-folder has an unique README file with more details about that stage.
+
+Note: The notebooks have been excessively commented but in case please feel free to contact my supervisor.
 
 For further questions contact Brandon Engelbrecht (engelbrechtbn@gmail.com) 
