@@ -137,7 +137,8 @@ def altBOC(f, m, n, f0):
     '''
     Binary Offset Carrier (BOC). The altBOC name refers to use a QPSK multiplexing signal.
     The chip size of the BPSK signal (Tc) is larger and an integer value of the
-    carrier signal chap size (Ts). Tc > Ts.
+    carrier signal chap size (Ts). Tc > Ts
+    https://gssc.esa.int/navipedia/index.php/AltBOC_Modulation.
 
 
     n > m
