@@ -14,5 +14,5 @@ Required files:
 - check_satellite.py: Based on the satellites of choice and the positioning of MeerKAT pointings, this file outputs the 2D angular seperation maps.
 - satellite_extract.py: Since not all GNSS satellites are given, some fall under <geo.txt> such as IRNSS and QBZ therefor we extract these satellites. All that is required is the folder location containing the geo.txt TLE data.
 
-For any questions pertaining to these 3 files or notebook, please contact Brandon Engelbrecht of Dr Yi-Chao Li.
+For any questions pertaining to these 3 files or notebook, please contact Brandon Engelbrecht or Dr Yi-Chao Li.
 

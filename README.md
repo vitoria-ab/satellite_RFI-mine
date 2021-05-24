@@ -1,7 +1,7 @@
 # satellite_RFI
 2021/05/04 - Satellite RFI code for MeerKLASS
 
-- Memo: https://www.overleaf.com/read/myyvyyvdjrkg
+- Memo: https://www.overleaf.com/read/myyvyyvdjrkg   (Under construction)
 
 The code setup is divided into three stages:
 
