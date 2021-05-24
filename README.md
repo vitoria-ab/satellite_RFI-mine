@@ -23,7 +23,7 @@ cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 
 ```
 cd ~/.local/share/jupyter/kernels/hi_sats_container
-'''
+```
 
 ```
 vim kernel.json
