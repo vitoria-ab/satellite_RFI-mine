@@ -14,13 +14,24 @@ Calculating the positioning of the satellites with respect to the MeerKAT pointi
 Stage 3:
 Simulation construction of satellites and fitting to observational data [Satellite_simulations].
 
-Requirements to run:
-1. In order to run all 3 stages you need access to the ILIFU cluster.
-2. The "HI_IM PY2" container should be used to run.
-3. The observational data is stored currently at "/idia/projects/hi_im/brandon/<specific_folder_names>"
+## Requirements to run:
+In order to run all 3 stages you need access to the ILIFU cluster.
+###  Set the container:
+'''
+cp -r hi_sats_container ~/.local/share/jupyter/kernels/
+'''
 
-Each sub-folder has an unique README file with more details about that stage.
+'''
+cd ~/.local/share/jupyter/kernels/hi_sats_container
+'''
 
-Note: The notebooks have been excessively commented but in case please feel free to contact my supervisor.
+'''
+vim kernel.json
+'''
+change $username to your own username
+
+## Data location
+The observational data is stored currently at "/idia/projects/hi_im/brandon/<specific_folder_names>"
+
 
 For further questions contact Brandon Engelbrecht (engelbrechtbn@gmail.com) 
