@@ -25,10 +25,6 @@ cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 cd ~/.local/share/jupyter/kernels/hi_sats_container
 ```
 
-```
-vim kernel.json
-```
-change $username to your own username
 
 ## Data location
 The observational data is stored currently at "/idia/projects/hi_im/brandon/<specific_folder_names>"
