@@ -17,17 +17,17 @@ Simulation construction of satellites and fitting to observational data [Satelli
 ## Requirements to run:
 In order to run all 3 stages you need access to the ILIFU cluster.
 ###  Set the container:
-'''
+```
 cp -r hi_sats_container ~/.local/share/jupyter/kernels/
-'''
+```
 
-'''
+```
 cd ~/.local/share/jupyter/kernels/hi_sats_container
 '''
 
-'''
+```
 vim kernel.json
-'''
+```
 change $username to your own username
 
 ## Data location
