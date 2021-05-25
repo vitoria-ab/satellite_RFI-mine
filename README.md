@@ -16,6 +16,18 @@ Simulation construction of satellites and fitting to observational data [Satelli
 
 ## Requirements to run:
 In order to run all 3 stages you need access to the ILIFU cluster.
+
+### setup.py file:
+```
+srun --pty bash
+```
+```
+singularity shell /idia/software/containers/hi_im-python2.7.simg
+```
+```
+python2 setup.py install --user
+```
+
 ###  Set the container:
 ```
 cp -r hi_sats_container ~/.local/share/jupyter/kernels/
