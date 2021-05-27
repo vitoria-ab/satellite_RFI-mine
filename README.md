@@ -3,7 +3,7 @@
 
 - Memo: https://www.overleaf.com/read/myyvyyvdjrkg   (Under construction)
 
-The code setup is divided into three stages:
+The code setup is divided into three stages found in Notebooks:
 
 Stage 1:
 Calibration of the MeerKLASS data [reCalibration_Data].
