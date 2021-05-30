@@ -6,13 +6,13 @@
 The code setup is divided into three stages found in Notebooks:
 
 Stage 1:
-Calibration of the MeerKLASS data [reCalibration_Data].
+Calibration of the MeerKLASS data [s1_reCalibration_Data].
 
 Stage 2:
-Calculating the positioning of the satellites with respect to the MeerKAT pointing [GNSS_position].
+Calculating the positioning of the satellites with respect to the MeerKAT pointing [s2_GNSS_position].
 
 Stage 3:
-Simulation construction of satellites and fitting to observational data [Satellite_simulations].
+Simulation construction of satellites and fitting to observational data [s3_Satellite_simulations].
 
 ## Requirements to run:
 In order to run all 3 stages you need access to the ILIFU cluster.
