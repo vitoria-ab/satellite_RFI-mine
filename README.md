@@ -25,6 +25,10 @@ srun --pty bash
 singularity shell /idia/software/containers/hi_im-python2.7.simg
 ```
 ```
+pip install skyfield --user
+
+```
+```
 python2 setup.py install --user
 ```
 
