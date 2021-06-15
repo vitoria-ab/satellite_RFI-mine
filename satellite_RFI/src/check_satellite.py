@@ -1,6 +1,7 @@
 from astropy import units as u
 from skyfield.api import Topos, load
 import numpy as np
+import numpy.ma as ma
 from astropy.time import Time, TimezoneInfo
 from astropy.coordinates import AltAz
 import copy
@@ -78,7 +79,6 @@ def get_sat_coods(sats, obs_time_list, obs_location):
 
     obs_time = obs_time.datetime.timetuple()
     obs_time = load.timescale(builtin=True).utc(*obs_time[:5] + (obs_time_range,))
-
     coords = []
     name = []
 
@@ -96,25 +96,61 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     coords = np.rollaxis(coords, -1, 0)
     return coords, name
 
+def unix_convert(tlist, sel):
+    """
+    Convert the UTC time to unix time 
+    tlist - 
+    """
+    ot = tlist.utc[:, sel]     # Selecting the YYYY-MM-DD and hh-mm-ss values from the list per point
+    ot2 = ot.astype(int)
+    dt = datetime(ot2[0], ot2[1], ot2[2], ot2[3], ot2[4], ot2[5])
+    
+    return ((dt - datetime(1970, 1, 1)).total_seconds())
+
+def unix_time(time_list, choice):
+    """
+    Obtain the difference in unix time from a list of utc times
+    time_list - the time list should be in UTC format of shape [6, n]
+    choice - n value
+    
+    """
+    t0 = unix_convert(tlist=time_list, sel=0) 
+    
+    time_line = []
+    for i in choice:
+        time_line.append(unix_convert(tlist=time_list, sel=i) - t0)
+        
+    return np.array(time_line)
+
 def remove_sats_below_horizen(sats, st_time, ed_time, location):
 
     #t1 = time.time()
 
     time_range = ed_time.unix - st_time.unix
     #time_range = st_time + np.linspace(0, time_range, 10) * u.second
-    time_range = np.linspace(0, time_range, 10)
+    time_range = np.linspace(0, time_range, 50)
     obs_time = st_time.datetime.timetuple()
     obs_time = load.timescale(builtin=True).utc(*obs_time[:5] + (time_range, ))
 
-    for key in sats.keys():
+    # making a place to store the indivdual masks of the satellites alt information
+    tlist = []
+    
+    for ii, key in enumerate(sats.keys()):
         satellite = sats[key]
         topcentric = (satellite - location).at(obs_time)
         alt, az, distance = topcentric.altaz()
+        
         if np.all(alt.radians < 0):
             del sats[key]
+        else:
+            alt_mask = (ma.masked_array(alt.degrees, 
+                                        mask= alt.degrees<0))
+            tlist.append(unix_time(time_list=obs_time,
+                              choice=np.where(alt_mask.mask==True)[0]))
+
 
     #print "remove sat use %f s"%(time.time() - t1)
-    return sats
+    return sats, tlist
 
 class Satellite_Catalogue(object):
 
@@ -205,28 +241,84 @@ class Satellite_Catalogue(object):
             obs_time_list = obs_start_time + self.obs_time_list[oo]
             coord_list = []
             name_list  = []
-
+            delete_list = []
             print "Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc)
             for ii, sat_type in enumerate(self.sats_type):
                 t0 = time.time()
                 sats = copy.copy(self.sats[ii])
                 #if sat_type == 'geo':
-                #    sats = remove_sats_below_horizen(sats, obs_time_list[0], 
-                #            obs_time_list[-1], self.obs_location)
+                # Edit - removes satellites thats are below the horizon
+                sats, tlist_ = remove_sats_below_horizen(sats, obs_time_list[0], 
+                                                 obs_time_list[-1], self.obs_location)
                 print "Satellite %12s has %4d satellites"%(sat_type, 
                                                          len(sats.keys())),
+                if len(tlist_)==0:
+                    delete_list.append(ii)
+                    print '[Removing this constellation from sats_type]'
                 
-                coord_list_sats, name_list_sats\
-                        = get_sat_coods(sats, obs_time_list, self.obs_location)
-                coord_list.append(coord_list_sats)
-                name_list.append(name_list_sats)
-                print " [use %6.2f s]"%(time.time() - t0)
-            coord_list_total.append(coord_list)
-            name_list_total.append(name_list)
+                else:
+                    coord_list_sats, name_list_sats\
+                            = get_sat_coods(sats, obs_time_list, self.obs_location)
 
-        self.coord_list = coord_list_total
+                    coord_list_sats_ma = []   # To store the masked values
+                    for jj in range(len(tlist_)):
+                        """
+                        Searching for the times that correspond to tlist_. 
+                        If the time is 0 sec then take the last value in 
+                        tlist_ and mask everything less than that. 
+                        Opposite holds !0 then the first t_list_
+                        and everything greater will be masked
+                        """
+                        try:
+                            if int(tlist_[jj][0])==0:
+                                mask_tlist = self.obs_time_list[0].value<=tlist_[jj][-1]  
+                            else:
+                                mask_tlist = self.obs_time_list[0].value>=tlist_[jj][0]
+                        except IndexError:
+                            mask_tlist = np.zeros((len(self.obs_time_list[0].value)), dtype=bool)
+
+
+                        coord_list_sats_ma.append(ma.masked_array(coord_list_sats[:, jj, :], 
+                                                 mask = np.column_stack((mask_tlist, mask_tlist))))
+
+                    coord_list.append(coord_list_sats_ma)
+                    name_list.append(name_list_sats)
+                    print " [use %6.2f s]"%(time.time() - t0)
+
+                coord_list_total.append(coord_list)
+                name_list_total.append(name_list)
+        
+        
+        """
+        Deleting any satellite constellation that do not show from the list
+        """
+        self.sats_type = [element for (i,element) in enumerate(self.sats_type) if i not in delete_list]
+        
+        
+        """
+        This section is for the satellite coords to change their shape for the check angular
+        section of the code. Will comment tomorrow
+        """
+        coord_sats_total = []
+        for jj in range(len(coord_list_total[0])):
+
+            cons_sats = ma.masked_array(coord_list_total[0][jj])
+
+            constellation_list = []
+            try:
+                for i in range((cons_sats.shape[1])):
+                    constellation_list.append(cons_sats[:, i, :])
+            
+            except IndexError:
+                continue 
+
+            coord_sats_total.append(ma.masked_array(constellation_list))   
+
+        self.coord_list = [coord_sats_total]
         self.name_list  = name_list_total
 
+        
+        
     def itersats_temperature(self, pointings, beam_func=None):
 
         '''
@@ -259,7 +351,7 @@ class Satellite_Catalogue(object):
             for ii in tqdm(range(len(self.sats_type))):
 
                 coords = coord_list[ii]
-                coords = np.array(coords)
+#                 coords = np.array(coords)
                 coords_Az  = coords[:, :, 0]
                 coords_Alt = coords[:, :, 1]
 
@@ -274,6 +366,8 @@ class Satellite_Catalogue(object):
 
                 yield obs_time_list, self.sats_type[ii], sats_name, _angle
 
+                
+                
     def get_angular_separation(self, pointings, beam_func=None):
         '''
         pointings : ndarray N x 2 (Az, Alt) in deg
@@ -300,7 +394,7 @@ class Satellite_Catalogue(object):
             for ii in range(len(self.sats_type)):
 
                 coords = coord_list[ii]
-                coords = np.array(coords)
+#                 coords = ma.masked_array(coords)  # Already a masked array (can check)
                 coords_Az  = coords[:, :, 0]
                 coords_Alt = coords[:, :, 1]
 
@@ -311,54 +405,69 @@ class Satellite_Catalogue(object):
                 if beam_func is not None:
                     _angle = beam_func(_angle)
                 angle_separation_list.append(_angle)
+                
 
             self.angle_separation_list.append(angle_separation_list)
 
+            
+            
+            
     def check_angular_separation(self, pointings, max_angle=10, beam_func=None,
             ymin=None, ymax=None, axes=None):
-
+        
+        
         self.get_angular_separation(pointings, beam_func=beam_func)
         for oo, obs_start_time in enumerate(self.obs_time):
-            if axes is None:
-                fig = plt.figure(figsize=(8, 4))
-                ax  = fig.add_axes([0.1, 0.1, 0.85, 0.85])
-            else:
-                ax = axes
-                fig = ax.get_figure()
+#             if axes is None:
+#                 fig = plt.figure(figsize=(8, 4))
+#                 ax  = fig.add_axes([0.1, 0.1, 0.85, 0.85])
+#             else:
+#                 ax = axes
+#                 fig = ax.get_figure()
 
             obs_time_list = obs_start_time.unix\
                     + self.obs_time_list[oo].to(u.second).value
-            x_axis = [ datetime.fromtimestamp(s) for s in obs_time_list]
-            x_axis = mdates.date2num(x_axis)
+#             x_axis = [ datetime.fromtimestamp(s) for s in obs_time_list]
+#             x_axis = mdates.date2num(x_axis)
             _angle_sum_total = np.zeros(len(obs_time_list))
+            
+            # Edit - list to save satellite angles with respect to the pointing 
+            satellite_angle = []
             for ii in range(len(self.sats_type)):
 
                 _angle = self.angle_separation_list[oo][ii]
-                #_angle = np.ma.masked_greater(_angle, max_angle)
-                #if beam_func is not None:
-                #    _angle = beam_func(_angle)
+                _angle = np.ma.masked_greater(_angle, max_angle)
+                #Edit - saving the angle which the satellites make with the pointing
+                satellite_angle.append(_angle)
+                if beam_func is not None:
+                    _angle = beam_func(_angle)
 
-                #ax.plot(x_axis, _angle, '.-', color=_c_list[ii], ms=1, lw=0.1)
-                ax.plot(x_axis, _angle, '-', color=_c_list[ii], lw=0.1)
+#                 ax.plot(x_axis, _angle, '.-', color=_c_list[ii], ms=1, lw=0.1)
+#                 ax.plot(x_axis, _angle, '-', color=_c_list[ii], lw=0.1)
 
-                _angle_sum = np.sum(_angle, axis=1)
+
+                # Change all the np.sum to ma.sum where needed
+                _angle_sum = ma.sum(_angle, axis=1)
                 _angle_sum_total += _angle_sum
-                ax.plot(x_axis, _angle_sum, '.-', color=_c_list[ii], ms=1, lw=1,
-                        zorder=1000)
-            ax.plot(x_axis, _angle_sum_total, '-', color='k', lw=1,
-                    zorder=2000)
+#                 ax.plot(x_axis, _angle_sum, '.-', color=_c_list[ii], ms=1, lw=1,
+#                         zorder=1000)
+#             ax.plot(x_axis, _angle_sum_total, '-', color='k', lw=1,
+#                     zorder=2000)
 
-            date_format = mdates.DateFormatter('%H:%M')
-            ax.xaxis.set_major_formatter(date_format)
-            ax.set_xlim(xmin=x_axis[0], xmax=x_axis[-1])
-            ax.set_ylim(ymin=ymin, ymax=ymax)
-            if beam_func is not None:
-                ax.semilogy()
-            ax.minorticks_on()
-            ax.tick_params(length=4, width=1, direction='in')
-            ax.tick_params(which='minor', length=2, width=1, direction='in')
-        if axes is None:
-            plt.show()
+#             date_format = mdates.DateFormatter('%H:%M')
+#             ax.xaxis.set_major_formatter(date_format)
+#             ax.set_xlim(xmin=x_axis[0], xmax=x_axis[-1])
+#             ax.set_ylim(ymin=ymin, ymax=ymax)
+#             if beam_func is not None:
+#                 ax.semilogy()
+#             ax.minorticks_on()
+#             ax.tick_params(length=4, width=1, direction='in')
+#             ax.tick_params(which='minor', length=2, width=1, direction='in')
+#         if axes is None:
+#             plt.show()
+
+
+        return satellite_angle
 
     def check_altaz(self):
         #coord_list = self.coord_list
@@ -550,25 +659,26 @@ class MeerKATsite_Satellite_Catalogue(Satellite_Catalogue):
 
     def get_angular_separation(self, pointings, beam_func=None):
 
-        if beam_func is None:
-            # using modified sinc function, quite close to Khan's model
-            beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+        """Obsolete, beam function are given in the beam function package"""
+#         if beam_func is None:
+#             # using modified sinc function, quite close to Khan's model
+#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
 
         super(MeerKATsite_Satellite_Catalogue, self).get_angular_separation(
                 pointings, beam_func=beam_func)
 
     def check_angular_separation(self, pointings, max_angle=100, beam_func=None,
             ymin=None, ymax=None, axes=None):
+        
 
-
-        if beam_func is None:
-            # using modified sinc function, quite close to Khan's model
-            beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
-
-
-        super(MeerKATsite_Satellite_Catalogue, self).check_angular_separation(
-                pointings, max_angle=max_angle,
-                beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
+        """Obsolete, beam function are given in the beam function package"""
+#         if beam_func is None:
+#             # using modified sinc function, quite close to Khan's model
+#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+         
+        return super(MeerKATsite_Satellite_Catalogue, self).check_angular_separation(
+            pointings, max_angle=max_angle,
+            beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
 
 
 
