@@ -19,8 +19,13 @@ def floaty(x):
 
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss):
-    '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input'''
+def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
+    '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
+    name_gnss - Satellite name
+    frequency_gnss - Frequency list of satellites
+    excel_sat_info - The satellite excel cataloguen name in the s3 Notebook folder
+    
+    '''
     # Distances to the satellite constellations, taken from Springer Handbook pg 1234 
 
     if name_gnss=='gps-ops':
@@ -56,7 +61,7 @@ def gnss_satellites(name_gnss, frequency_gnss):
         return -1
 
     
-    data = pd.read_csv('../../Notebooks/s3_Satellite_simulations/Satellite_Catalogue/table3B_satellite_v3.csv', header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+    data = pd.read_csv('../../Notebooks/s3_Satellite_simulations/Satellite_Catalogue/'+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
 
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
@@ -119,21 +124,21 @@ def gnss_satellites(name_gnss, frequency_gnss):
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'TMBOC(' in data_sub['Modulation'][i]:
-            s = data_sub['Modulation'][i]
-            # Getting the values between parenthesis and converting to float
-            T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
-            model = psd.TMBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
-                             n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
+#         elif 'TMBOC(' in data_sub['Modulation'][i]:
+#             s = data_sub['Modulation'][i]
+#             # Getting the values between parenthesis and converting to float
+#             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
+#             model = psd.TMBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
+#                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'CBOC(' in data_sub['Modulation'][i]:
-            s = data_sub['Modulation'][i]
-            # Getting the values between parenthesis and converting to float
-            T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
-            model = psd.CBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
-                             n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
+#         elif 'CBOC(' in data_sub['Modulation'][i]:
+#             s = data_sub['Modulation'][i]
+#             # Getting the values between parenthesis and converting to float
+#             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
+#             model = psd.CBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
+#                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
@@ -154,7 +159,7 @@ def gnss_satellites(name_gnss, frequency_gnss):
     
 ## Function that returns the TOD values
 
-def TOD_sats(name_tod, fname, frequency_tod, beam_model):
+def TOD_sats(name_tod, fname, frequency_tod, beam_model, excel_sat):
     '''
     Returns the sat_temp in units of mK
     name - a str;
@@ -163,7 +168,7 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model):
     plot - option to plot 'yes', 'y', '1' then plot
     '''
     
-    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod)   # Calling another fucntion
+    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, excel_sat_info=excel_sat)   # Calling another fucntion
     sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellites togther
     
     # Multiplied with the gains
