@@ -13,7 +13,7 @@ def BPSK(f, n_c, f0=1.023):
     f0 - reference frequency
     '''
     t_c = 1/(n_c*f0)
-    a = np.sqrt(t_c) * np.sinc(f * t_c)
+    a = np.sqrt(t_c) * np.sinc(np.pi * f * t_c)
     return a**2
 
 #--------------------------------------------------------------------------------------#
