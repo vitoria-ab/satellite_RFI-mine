@@ -11,6 +11,8 @@ class satellite_sim:
     The TOD can be sliced in both time and frequency for the users preferance.
     
     Requirements:
+        file_name - file name 
+        sats_only - Include or exclude observational data set to !=None
         s1_data_loc - Location of the re-calibration data
         s2_data_loc - Location of the angualr seperation maps of the satellite
         bias_choice_loc - Location of the bias choice parameters for the satellites
@@ -20,12 +22,14 @@ class satellite_sim:
                  sats_only = None,
                  s1_data_loc = '/idia/projects/hi_im/brandon/1551055211_level6_mask/', 
                  s2_data_loc = '/idia/projects/hi_im/brandon/1551055211_level6_mask/',
+                 sat_cataloque_name = None,
                  bias_choice_loc = ''):
         
         self.file_name = file_name
         self.sats_only = sats_only
         self.s1_data_loc = s1_data_loc
         self.s2_data_loc =  s2_data_loc
+        self.sat_catalogue = sat_cataloque_name
         self.bias_choice_loc = bias_choice_loc
         
         
@@ -46,16 +50,21 @@ class satellite_sim:
 
         
         
-    def excecute(self, file_bias_choice='bias_choices', obs_time_start=None, 
-                 obs_time_end=None, obs_frequency_start=None, obs_frequency_end=None):
+    def excecute(self, obs_time_start=None, obs_time_end=None, 
+                 obs_frequency_start=None, obs_frequency_end=None, file_bias_choice=None, add_sub=[None, None]):
         '''
         A function which excutes all the function currently available to us. 
         A means to avoid initializing them.
-        
-        file_bias_choice - name of the file
+    
         obs_time_start/end - the time slice of the data and simulation
         obs_frequency_start/end - the frequency start and end for the data and simulations
+        file_bias_choice - 1. is a str: file name, should be placed in the correct folder
+                           2. is a list: the list should have the same number as constellations plus noise parameter
+                           3. is None: user will then put amplitude choices for the constellation
+        add_sub - a list. First None: add the BG model to the satellite data if !=None
+                          Second None: subtracts the BG model from observation data if ==None
         '''
+        
         
         # Sets the frequency band
         self.frequency_band = self.get_frequency_information()
@@ -66,26 +75,29 @@ class satellite_sim:
         # Satellite TOD
         self.satellite_TOD, self.satellite_SED = self.get_gnss_simulaton()
         
+        # BG Noise: subtract the observational data; add to the simulations
+        self.add_BG,  self.sub_BG = add_sub
+        
         # Slice idx in the frequency and the time
         self.time_idx, self.frequency_idx = self.get_slice_idx(start_time=obs_time_start, 
                                                                     end_time=obs_time_end, 
                                                                     start_frequency=obs_frequency_start, 
                                                                     end_frequency=obs_frequency_end)
         
+#         if self.sats_only==None:
+#             """
+#             sats_only != None: Allows for the observational data to be used
+#             """
+        # Observational data
+        self.calibration_data, self.calibration_data_original, self.calibration_data_noise = self.get_calibration_data()
+
+        # Calibration data slice
+        self.calibration_data_slice, self.calibration_noise_slice = self.get_data_slice()
+
         
         # Satellite simulation slice
         self.simulation_slice, self.simulation_TOD_slice, self.bias_choice, self.satellite_TOD_slice = self.get_simulation_slice(file_bias_choice=file_bias_choice)
       
-        if self.sats_only==None:
-            """
-            sats_only != None: Allows for the observational data to be used
-            """
-            # Observational data
-            self.calibration_data, self.calibration_data_original, self.calibration_data_noise = self.get_calibration_data()
-
-            # Calibration data slice
-            self.calibration_data_slice, self.calibration_noise_slice = self.get_data_slice()
-
     
     
     def plotting(self, individual=None, logger=None, tod_limit=None, save_file=None, suffix=None):
@@ -105,7 +117,7 @@ class satellite_sim:
         
               
         """
-        self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file)
+        self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, log_scale=logger)
         self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
         if self.sats_only == None:
             self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
@@ -155,8 +167,12 @@ class satellite_sim:
             
             Temp_tod = data['TOD Avg'].T
             Temp_noise = data['BG Model'].T
-            Temp_res = Temp_tod - Temp_noise     # Getting the BG model to be added to the simualtions instead
-
+            
+            if self.sub_BG==None:
+                Temp_res = Temp_tod - Temp_noise     # Getting the BG model to be added to the simualtions instead
+            else:
+                Temp_res = Temp_tod
+                
             return Temp_res, Temp_tod, Temp_noise
 
         except Exception as e:
@@ -193,13 +209,13 @@ class satellite_sim:
         satellite_TOD = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i])[0] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue)[0] for i, satellite_name in enumerate(self.satellite_type)])
 
         
         satellite_SED = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i])[1] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue)[1] for i, satellite_name in enumerate(self.satellite_type)])
         
         return satellite_TOD, satellite_SED
     
@@ -271,15 +287,18 @@ class satellite_sim:
     def get_simulation_slice(self, file_bias_choice=None):
         '''
         Slicing the simualted satellite data with the index values obtained from the 'get_data_sliced'
+        
         '''
-        
-        satellite_TOD_slice = self.satellite_TOD[:, self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]    # This is needs to spliced with the above slice
-        
-#         bg_model_added = self.calibration_data_noise[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]] # This is the bg_model being added to the observational data for the simulations
-        
-        if file_bias_choice!=None:
+#       This is needs to spliced with the above slice
+        satellite_TOD_slice = self.satellite_TOD[:, self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]    
+           
+        if type(file_bias_choice)==str:
             bias_choice = np.loadtxt(fname=self.bias_choice_loc+(file_bias_choice)+'.txt', delimiter=' ')
-            
+        
+        elif type(file_bias_choice)==list:
+            print 'Bias choice is follows:'+', '.join(self.satellite_type) +', noise'
+            bias_choice = file_bias_choice
+        
         else:
             print  'Enter the '+str(len(self.satellite_type)+1)+' bias choices for the following: '
             print ', '.join(self.satellite_type) +', noise'
@@ -298,8 +317,11 @@ class satellite_sim:
 #         satellite_TOD_slice[satellite_TOD_slice >= threshold_k] = threshold_k                        # Setting the threshold before bias choice
         # ----------------------------------------------
         
-        gnss_bias_model_m = gnss_bias_model #+ bg_model_added
-                
+        if self.add_BG==None:
+            gnss_bias_model_m = gnss_bias_model 
+        else:
+            gnss_bias_model_m = gnss_bias_model + self.calibration_noise_slice
+               
        
         gnss_bias_model_frequency = self._average_over_frequency_(gnss_bias_model_m)
 
@@ -309,10 +331,10 @@ class satellite_sim:
     
     
     # ------------------------------------PLOTS--------------------------------------
-
+# **********************************************************************************************************
     # ------------------------------------PLOTS--------------------------------------
 
-    def _get_slice_plot_(self, ALL=None, save_file=None):
+    def _get_slice_plot_(self, ALL=None, save_file=None, log_scale=None):
         '''
         Function for plotting the Simulation outputs
         '''        
@@ -336,7 +358,11 @@ class satellite_sim:
             plt.ylim(bottom=1e-2)
 
         
-        plt.yscale('log')
+        if log_scale==None:
+            plt.yscale('log')
+            plt.ylabel(r'log$_{10}$(Temperature [K])')
+        
+        
         plt.legend()
         plt.tight_layout()
         if save_file !=None:
