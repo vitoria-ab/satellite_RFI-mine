@@ -19,7 +19,7 @@ def floaty(x):
 
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
+def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, excel_loc=None):
     '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
     name_gnss - Satellite name
     frequency_gnss - Frequency list of satellites
@@ -60,8 +60,11 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
         print ('Oops, make the sure name is written as GPS or Galileo or GLONASS')
         return -1
 
-    
-    data = pd.read_csv('../../Notebooks/s3_Satellite_simulations/Satellite_Catalogue/'+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+    if excel_loc==None:
+        data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+    else:
+        data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+
 
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
@@ -80,7 +83,10 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
 
     # Looping through all the sub-data index
     for i in data_sub.index:
-        power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi*r**2) 
+        if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
+            power = 0
+        else:
+            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi*r**2) 
 
         if 'BPSK(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -124,21 +130,21 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-#         elif 'TMBOC(' in data_sub['Modulation'][i]:
-#             s = data_sub['Modulation'][i]
-#             # Getting the values between parenthesis and converting to float
-#             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
-#             model = psd.TMBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
-#                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
+        elif 'TMBOC(' in data_sub['Modulation'][i]:
+            s = data_sub['Modulation'][i]
+            # Getting the values between parenthesis and converting to float
+            T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
+            model = psd.TMBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
+                             n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-#         elif 'CBOC(' in data_sub['Modulation'][i]:
-#             s = data_sub['Modulation'][i]
-#             # Getting the values between parenthesis and converting to float
-#             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
-#             model = psd.CBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
-#                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
+        elif 'CBOC(' in data_sub['Modulation'][i]:
+            s = data_sub['Modulation'][i]
+            # Getting the values between parenthesis and converting to float
+            T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
+            model = psd.CBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
+                             n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
@@ -159,16 +165,17 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info):
     
 ## Function that returns the TOD values
 
-def TOD_sats(name_tod, fname, frequency_tod, beam_model, excel_sat):
+def TOD_sats(name_tod, fname, frequency_tod, beam_model, excel_sat, excel_cat_loc):
     '''
     Returns the sat_temp in units of mK
     name - a str;
     frequency - range of frequencies in MHz;
     beam_model - coming from Yi-Chaos angular seperation code, if 2d then should be transposed
-    plot - option to plot 'yes', 'y', '1' then plot
+    excel_sat - the satellite catalogue name
+    excel_cat_loc - the location of the mask, if !None, you set the location, else location is the same
     '''
     
-    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, excel_sat_info=excel_sat)   # Calling another fucntion
+    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
     sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellites togther
     
     # Multiplied with the gains

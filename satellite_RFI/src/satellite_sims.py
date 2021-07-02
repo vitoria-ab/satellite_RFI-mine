@@ -18,22 +18,25 @@ class satellite_sim:
         bias_choice_loc - Location of the bias choice parameters for the satellites
     """
     def __init__(self, 
-                 file_name = None, 
-                 sats_only = None,
-                 s1_data_loc = '/idia/projects/hi_im/brandon/1551055211_level6_mask/', 
-                 s2_data_loc = '/idia/projects/hi_im/brandon/1551055211_level6_mask/',
-                 sat_cataloque_name = None,
-                 bias_choice_loc = ''):
+                 file_name=None, 
+                 sats_only=None,
+                 s1_data_loc='/idia/projects/hi_im/brandon/1551055211_level6_mask/', 
+                 s2_data_loc='/idia/projects/hi_im/brandon/1551055211_level6_mask/',
+                 plots_loc=None,
+                 sat_catalogue_name=None,
+                 sat_catalogue_loc=None,
+                 bias_choice_loc=''):
         
-        self.file_name = file_name
-        self.sats_only = sats_only
-        self.s1_data_loc = s1_data_loc
-        self.s2_data_loc =  s2_data_loc
-        self.sat_catalogue = sat_cataloque_name
-        self.bias_choice_loc = bias_choice_loc
-        
-        
-        self.katdal_info = self.get_katdal_info(s1_data_loc)
+        self.file_name=file_name
+        self.sats_only=sats_only
+        self.s1_data_loc=s1_data_loc
+        self.s2_data_loc=s2_data_loc
+        self.plots_loc=plots_loc
+        self.sat_catalogue=sat_catalogue_name
+        self.sat_catalogue_loc=sat_catalogue_loc
+        self.bias_choice_loc=bias_choice_loc
+                
+        self.katdal_info=self.get_katdal_info(s1_data_loc)
         
         #------------------------------------------------------
         # Getting the outputs of katdal info:
@@ -100,7 +103,8 @@ class satellite_sim:
       
     
     
-    def plotting(self, individual=None, logger=None, tod_limit=None, save_file=None, suffix=None):
+    def plotting(self, individual=None, logger=None, axis_limit=None,
+                 tod_limit=None, save_file=None, suffix=None):
         """
         Plotting various plots: 
         1. The 1D Simulation model vs the Observational data 
@@ -110,6 +114,7 @@ class satellite_sim:
         Parameters:
         individual - If "None" will plot the combined model vs observation data. If "not None" will show the indivdiual satellite componants
         logger - If "None" plots will be in linear scale. If "not None" plots will be in log scale
+        axis_limit - If "None" will be the whole limit. If "not None" plots will limited [x1, x2, y1, y2]
         tod_limit - The vmin and vmax for both TOD maps
         sats_only - If you want to show the satellites alone
         save_file - If "not None" file will be saved for all plots. Plots name will include both time and freqeuncy positions.
@@ -117,10 +122,16 @@ class satellite_sim:
         
               
         """
-        self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, log_scale=logger)
+        self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, 
+                                                          log_scale=logger, limit=axis_limit)
+       
+        self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
+                                                          log_scale=logger, limit=axis_limit)
+        
         self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
         if self.sats_only == None:
             self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
+            
 
     
         
@@ -209,13 +220,15 @@ class satellite_sim:
         satellite_TOD = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue)[0] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue,
+                                             excel_cat_loc=self.sat_catalogue_loc)[0] for i, satellite_name in enumerate(self.satellite_type)])
 
         
         satellite_SED = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue)[1] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], excel_sat=self.sat_catalogue,
+                                             excel_cat_loc=self.sat_catalogue_loc)[1] for i, satellite_name in enumerate(self.satellite_type)])
         
         return satellite_TOD, satellite_SED
     
@@ -334,11 +347,11 @@ class satellite_sim:
 # **********************************************************************************************************
     # ------------------------------------PLOTS--------------------------------------
 
-    def _get_slice_plot_(self, ALL=None, save_file=None, log_scale=None):
+    def _get_slice_plot_(self, ALL=None, save_file=None, log_scale=None, limit=None):
         '''
         Function for plotting the Simulation outputs
         '''        
-        
+
         plt.figure(figsize=(14, 4))
         plt.title(self.file_name+': Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
         
@@ -348,12 +361,17 @@ class satellite_sim:
             observation = self._average_over_frequency_(self.calibration_data_slice)
             plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation, '-', color='black', label='Data')      
         
+        if self.add_BG==None:
+            bg_noise = 0 
+        else:
+            bg_noise = self._average_over_frequency_(self.calibration_noise_slice)
+        
         plt.xlabel('Frequency [MHz]')
         plt.ylabel('Temperature [K]')
         if ALL!=None:
-            for i in range(len(self.bias_choice)):
+            for i in range(len(self.satellite_type)):
                 plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], 
-                         self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i], 
+                         self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + self.bias_choice[-1] + bg_noise, 
                          label=self.satellite_type[i]+'  x'+str(self.bias_choice[i]))
             plt.ylim(bottom=1e-2)
 
@@ -361,18 +379,57 @@ class satellite_sim:
         if log_scale==None:
             plt.yscale('log')
             plt.ylabel(r'log$_{10}$(Temperature [K])')
+            
+        if limit!=None:
+            x1, x2, y1, y2 = limit
+            plt.xlim(x1, x2)
+            plt.ylim(y1, y2)
         
         
         plt.legend()
         plt.tight_layout()
         if save_file !=None:
-            plt.savefig(self.s1_data_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
-                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.png')
+            plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
+                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.pdf')
             
             # Saving the data to file
             pickle.dump(observation, open(self.s1_data_loc+self.file_name+'_observation_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_tod.p', 'wb'))
             
+        else:
+            plt.show()
+            
+    def _get_slice_plot_diff_(self, ALL=None, save_file=None, log_scale=None, limit=None):
+        '''
+        Function for plotting the Simulation outputs
+        '''        
+
+        plt.figure(figsize=(14, 4))
+        plt.title(self.file_name+'-Resulatant Plot: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+        
+        observation = self._average_over_frequency_(self.calibration_data_slice)
+
+        
+        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation - self.simulation_slice, color='black', label='Data-Model')      
+        plt.axhline(0, color='r', linestyle='--')
+        
+        plt.xlabel('Frequency [MHz]')
+        plt.ylabel('Temperature [K]')
+
+            
+        if limit!=None:
+            x1, x2, y1, y2 = limit
+            plt.xlim(x1, x2)
+#             plt.ylim(y1, y2)
+        
+        
+        plt.legend()
+        plt.tight_layout()
+        if save_file !=None:
+            plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
+                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_resultant.pdf')
+            
+
         else:
             plt.show()
         
@@ -416,8 +473,8 @@ class satellite_sim:
 
         plt.tight_layout()
         if save_file !=None:
-            plt.savefig(self.s1_data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.png')
+            plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.pdf')
             
             # Saving the data to file
             pickle.dump(data_slice, open(self.s1_data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
@@ -468,8 +525,8 @@ class satellite_sim:
 
         plt.tight_layout()
         if save_file !=None:
-            plt.savefig(self.s1_data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.png')
+            plt.savefig(self.plots_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.pdf')
             
             # Saving the file
             pickle.dump(data_slice, open(self.s1_data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+

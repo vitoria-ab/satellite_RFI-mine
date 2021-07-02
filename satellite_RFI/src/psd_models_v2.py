@@ -133,45 +133,30 @@ def BOCc(f, n_c, n_s, f0=1.023):
 
 # Missing AltBOC - Still require new version
 
-def altBOC(f, m, n, f0):
+def altBOC(f, n_c, n_s, f0):
     '''
     Binary Offset Carrier (BOC). The altBOC name refers to use a QPSK multiplexing signal.
     The chip size of the BPSK signal (Tc) is larger and an integer value of the
     carrier signal chap size (Ts). Tc > Ts
     https://gssc.esa.int/navipedia/index.php/AltBOC_Modulation.
-
-
     n > m
     (Tc > Ts)
-
     '''
 
-    fs = f0 * m
-    fc = f0 * n
-    
-    phi = 2 * m / n 
+
+    phi = 2 * n_s / n_c 
+    alp = 4*n_c*f0 / (np.pi*f)**2
+    div = np.cos(np.pi*f/2/n_s/f0)**2
+    beta = np.cos(np.pi*f/2/n_s/f0)**2 - np.cos(np.pi*f/2/n_s/f0) - 2*np.cos(np.pi*f/2/n_s/f0)*np.cos(np.pi*f/4/n_s/f0) + 2
+
     
     if np.mod(phi, 2) == 0: # Phi-even spectrum
-#         print 'Even'
-        a = 4 * fc / np.pi**2 / f**2 
-        b = np.sin(np.pi * f / fc)**2 / np.cos(np.pi * f / 2 / fs)**2 
-        c1 = np.cos(np.pi * f / 2 /fs)**2 
-        c2 = np.cos(np.pi * f / 2 / fs) 
-        c3 = 2*np.cos(np.pi * f / 2 / fs) * np.cos(np.pi * f  / 4 / fs)
-
-        sol = a * b * (c1 - c2 - c3 + 2)
+        num = np.sin(np.pi*f/n_c/f0)**2
 
     else:
-#         print 'Odd'
-        a = 4 * fc / np.pi**2 / f**2 
-        b = np.cos(np.pi * f / fc)**2 / np.cos(np.pi * f / 2 / fs)**2 
-        c1 = np.cos(np.pi * f / 2 /fs)**2 
-        c2 = np.cos(np.pi * f / 2 / fs) 
-        c3 = 2*np.cos(np.pi * f / 2 / fs) * np.cos(np.pi * f  / 4 / fs)
+        num = np.cos(np.pi*f/n_c/f0)**2
         
-        sol = a * b * (c1 - c2 - c3 + 2)
-        
-    return sol
+    return alp * (num / div) * beta
 
 
 
@@ -180,9 +165,12 @@ def altBOC(f, m, n, f0):
 # Missing MBOC - Still require new version
 
 def MBOC(f, m, f0=1.023):
-    '''https://en.wikipedia.org/wiki/Multiplexed_binary_offset_carrier'''
+    '''
+    https://en.wikipedia.org/wiki/Multiplexed_binary_offset_carrier
+    https://gssc.esa.int/navipedia/index.php/MBOC_Modulation
+    '''
 
-    fc = m * 1.023
+    fc = m * f0
 
     A = fc / 11 / np.pi**2 / f**2
     B = np.sin(np.pi*f/fc)**2
