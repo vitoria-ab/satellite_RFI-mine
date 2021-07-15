@@ -4,6 +4,7 @@ import scipy as sp
 import astropy.constants as cc
 import psd_models_v2 as psd
 from fractions import Fraction
+import attenuation_function as af
 #-------------------------------------------------------------_#
 
 def floaty(x):
@@ -19,11 +20,12 @@ def floaty(x):
 
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, excel_loc=None):
+def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_loc=None):
     '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
     name_gnss - Satellite name
     frequency_gnss - Frequency list of satellites
     excel_sat_info - The satellite excel cataloguen name in the s3 Notebook folder
+    band_lvl- the bandwidth and level of the drop
     
     '''
     # Distances to the satellite constellations, taken from Springer Handbook pg 1234 
@@ -150,8 +152,13 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, excel_loc=None):
 
         # Checking for NaN values in model and swapping with zeros.
         model = np.array([0 if np.isnan(x) else x for x in model])
+        
+#         Adding top-hat functions
+        model2 = af.tophat_rect(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
+                       band=band_lvl[0], level=band_lvl[1], values=model)
 
-        sed.append(power * model * 1e26 / 1e6)  # In Jansky
+
+        sed.append(power * model2 * 1e26 / 1e6)  # In Jansky
 
     sed = np.array(sed)
 
@@ -165,7 +172,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, excel_loc=None):
     
 ## Function that returns the TOD values
 
-def TOD_sats(name_tod, fname, frequency_tod, beam_model, excel_sat, excel_cat_loc):
+def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, excel_cat_loc):
     '''
     Returns the sat_temp in units of mK
     name - a str;
@@ -175,7 +182,7 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model, excel_sat, excel_cat_lo
     excel_cat_loc - the location of the mask, if !None, you set the location, else location is the same
     '''
     
-    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
+    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, band_lvl=band_lvl, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
     sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellites togther
     
     # Multiplied with the gains
