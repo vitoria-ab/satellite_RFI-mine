@@ -244,7 +244,7 @@ class Data_reduction:
         return temperature_tod, [frequency[c_start:c_end], freq_bandpass, ch_list], [a1_true, a1], [g_t, g_nu], background_models
 
     
-    def TOD(self, ant_no,  nd_off, c_start, mask_loc, frequency=None, frequency_choice=1500, c_end=-1):
+    def TOD(self, ant_no,  nd_off, c_start, mask_loc, frequency=None, frequency_choice=None, c_end=-1):
         '''
         Takes the information from "gain,vis data" and combines the HH VV together for a given frequency range.
         gain, visibility - gain data & visibility data respectivly 

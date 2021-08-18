@@ -315,14 +315,18 @@ class Satellite_Catalogue(object):
             coord_sats_total.append(ma.masked_array(constellation_list))   
 
         self.coord_list = [coord_sats_total]
-        self.name_list  = name_list_total
+        self.name_list  = name_list_total       # Holds naming information for the individual satellites that remain
 
         
         
-    def itersats_temperature(self, pointings, beam_func=None):
+    def itersats_temperature(self, pointings, beam_func=None, close_angle=None):
 
         '''
         pointings : ndarray N x 2 (Az, Alt) in deg
+        
+        beam_func -  type of beam given to the coordinates. If==None, then output is the angles
+        
+        close_angle - If None, will ignore Else, will mask all satellites that do not come closer than close_angle
 
         yield: separation angle if beam_func is None; or return the 
                 beam convolved temperature, assuming the sats temperature
@@ -361,6 +365,20 @@ class Satellite_Catalogue(object):
                        + np.cos(pointing_Alt) * np.cos(coords_Alt)\
                        * np.cos(pointing_Az - coords_Az)
                 _angle = np.arccos(_angle) * 180. / np.pi
+                
+                '''--------Checking satellites coming close to MeerKAT pointing--------'''
+                # The angle at which you want to check satellites
+                if close_angle is not None:
+                    mask_angle = np.ones(_angle.shape)   # 2d angle shape
+                    for i in range(_angle.shape[1]):     # running
+                        if len(np.ma.where(_angle[:, i] < close_angle)[0])!=0:
+                            mask_angle[:,i] = 0
+                        else:
+                            sats_name[i]=''
+                        
+
+                    _angle = np.ma.masked_array(_angle, mask=mask_angle)
+                '''--------------------------------------------------------------------'''
                 if beam_func is not None:
                     _angle = beam_func(_angle)
 
@@ -667,7 +685,7 @@ class MeerKATsite_Satellite_Catalogue(Satellite_Catalogue):
         super(MeerKATsite_Satellite_Catalogue, self).get_angular_separation(
                 pointings, beam_func=beam_func)
 
-    def check_angular_separation(self, pointings, max_angle=100, beam_func=None,
+    def check_angular_separation(self, pointings, max_angle=None, beam_func=None,
             ymin=None, ymax=None, axes=None):
         
 

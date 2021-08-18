@@ -71,7 +71,8 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
 #-----# Looking at all frequency below 1500 MHz
-    data = data[data['Frequency[MHz]']< 1500]
+
+    data = data[data['Frequency[MHz]']< 1700]
 #------# Changing the rate values
 #         data.loc[data['Rate(MHz)'] != 1.023, 'Rate(MHz)'] = 1.023
 
@@ -85,6 +86,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 
     # Looping through all the sub-data index
     for i in data_sub.index:
+
         if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
             power = 0
         else:
@@ -98,7 +100,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 
 #                 print T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'BOC(' in data_sub['Modulation'][i]:
+        if 'BOC(' in data_sub['Modulation'][i]:
             try:
                 s = data_sub['Modulation'][i]
                 # Getting the values between parenthesis and converting to float
@@ -113,7 +115,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
                 pass
 
 
-        elif 'BOCcos(' in data_sub['Modulation'][i]:
+        if 'BOCcos(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
             # Getting the values between parenthesis and converting tp float
             T_s, T_c = [float(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
@@ -122,17 +124,17 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'AltBOC(' in data_sub['Modulation'][i]:
+        if 'AltBOC(' in data_sub['Modulation'][i]:
             # Going to also catch TD-AltBOC
             s = data_sub['Modulation'][i]
             # Getting the values between parenthesis and converting to float
             T_s, T_c = [float(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
-            model = psd.altBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], m=T_s,
-                               n=T_c, f0=data_sub['Rate(MHz)'][i] / T_c)
+            model = psd.altBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_s=T_s,
+                               n_c=T_c, f0=data_sub['Rate(MHz)'][i] / T_c)
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'TMBOC(' in data_sub['Modulation'][i]:
+        if 'TMBOC' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
             # Getting the values between parenthesis and converting to float
             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
@@ -141,16 +143,15 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 
 #                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        elif 'CBOC(' in data_sub['Modulation'][i]:
+        if 'CBOC' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
             # Getting the values between parenthesis and converting to float
             T_s, T_c, rt = [floaty(x) for x in s[s.find("(")+1:s.find(")")].split(',')]
             model = psd.CBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
-#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
-        # Checking for NaN values in model and swapping with zeros.
+#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
         model = np.array([0 if np.isnan(x) else x for x in model])
         
 #         Adding top-hat functions

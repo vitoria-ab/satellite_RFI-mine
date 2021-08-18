@@ -13,30 +13,32 @@ class satellite_sim:
     Requirements:
         file_name - file name 
         sats_only - Include or exclude observational data set to !=None
-        s1_data_loc - Location of the re-calibration data
-        s2_data_loc - Location of the angualr seperation maps of the satellite
+        s_data_loc - Location of the re-calibration data and angualr seperation maps of the satellite
+        sat_beam - The beam choice applied for the data eg: [emss_beam]
         bias_choice_loc - Location of the bias choice parameters for the satellites
     """
     def __init__(self, 
                  file_name=None, 
                  sats_only=None,
-                 s1_data_loc='/idia/projects/hi_im/brandon/1551055211_level6_mask/', 
-                 s2_data_loc='/idia/projects/hi_im/brandon/1551055211_level6_mask/',
+                 s_data_loc=None, 
                  plots_loc=None,
                  sat_catalogue_name=None,
                  sat_catalogue_loc=None,
+                 sat_beam=None,
+                 frequency_range=None,
                  bias_choice_loc=''):
         
         self.file_name=file_name
         self.sats_only=sats_only
-        self.s1_data_loc=s1_data_loc
-        self.s2_data_loc=s2_data_loc
+        self.s_data_loc=s_data_loc
         self.plots_loc=plots_loc
         self.sat_catalogue=sat_catalogue_name
         self.sat_catalogue_loc=sat_catalogue_loc
+        self.sat_beam = sat_beam
+        self.frequency_choice=frequency_range
         self.bias_choice_loc=bias_choice_loc
                 
-        self.katdal_info=self.get_katdal_info(s1_data_loc)
+        self.katdal_info=self.get_katdal_info(s_data_loc)
         
         #------------------------------------------------------
         # Getting the outputs of katdal info:
@@ -49,12 +51,16 @@ class satellite_sim:
         timestamps - time flow od the data
         nd_s0_coords - azimuth and elevation of the data
         '''
+        
+        # Satellite positioning
+        self.satellite_type, self.satellite_angle = self.get_satellite_angle_seperation()
         #------------------------------------------------------
 
         
         
     def excecute(self, obs_time_start=None, obs_time_end=None, 
-                 obs_frequency_start=None, obs_frequency_end=None, file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None]):
+                 obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None, 
+                 file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None]):
         '''
         A function which excutes all the function currently available to us. 
         A means to avoid initializing them.
@@ -64,6 +70,7 @@ class satellite_sim:
         file_bias_choice - 1. is a str: file name, should be placed in the correct folder
                            2. is a list: the list should have the same number as constellations plus noise parameter
                            3. is None: user will then put amplitude choices for the constellation
+        frequency_idx - The minimum and maximum idx for the frequency band (user defined)
         add_sub - a list. First None: add the BG model to the satellite data if !=None
                           Second None: subtracts the BG model from observation data if ==None
         band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
@@ -71,10 +78,7 @@ class satellite_sim:
         
         
         # Sets the frequency band
-        self.frequency_band = self.get_frequency_information()
-        
-        # Satellite positioning
-        self.satellite_type, self.satellite_angle = self.get_satellite_angle_seperation() 
+        self.frequency_band = self.get_frequency_information() 
         
         # Bandwith and level of difference for attenuation
         self.band_lvl = band_lvl
@@ -144,14 +148,14 @@ class satellite_sim:
     
         
     
-    def get_katdal_info(self, s1_data_loc):
+    def get_katdal_info(self, s_data_loc):
         '''
         Obtain KATDAL information regarding the data set such as the frequency and the noise diodes in scanning/no diode fired
         '''
         
         try:
             fname = self.file_name
-            data = pickle.load(open(self.s1_data_loc+fname+'_katdal_info.p', 'rb'))
+            data = pickle.load(open(self.s_data_loc+fname+'_katdal_info.p', 'rb'))
             
             return data
             
@@ -167,9 +171,11 @@ class satellite_sim:
         !!! Should add some extra stuff here regarding the printing of the freqeuncy bands.
         For not fixed
         '''
-        f_start_idx = 600
-        f_end_idx = 2482
-        f_band = self.frequency[f_start_idx:f_start_idx+f_end_idx]
+        f_start_idx = (np.where(self.frequency > self.frequency_choice[0])[0][0])
+        f_end_idx = (np.where(self.frequency > self.frequency_choice[1])[0][0])
+#         f_start_idx = 600
+#         f_end_idx = 2482
+        f_band = self.frequency[f_start_idx:f_end_idx]
         
         return f_band
         
@@ -182,7 +188,7 @@ class satellite_sim:
         
         try:
             fname = self.file_name
-            data = pickle.load(open(self.s1_data_loc+fname+'_average_TOD_BG_model.p'))
+            data = pickle.load(open(self.s_data_loc+fname+'_average_TOD_BG_model.p'))
             
             Temp_tod = data['TOD Avg'].T
             Temp_noise = data['BG Model'].T
@@ -207,7 +213,8 @@ class satellite_sim:
         
         try:
             fname = self.file_name
-            data = pickle.load(open(self.s2_data_loc+fname+"_satellite_angular_position.p", "rb"))
+            beam_choice = self.sat_beam
+            data = pickle.load(open(self.s_data_loc+fname+'_satellite_angular_position_'+beam_choice+".p", "rb"))
             
             Satellite_type = data["sat_name"]     # Contains the names of the constellations
             Satellite_angle = data["angular"]     # Contains the angular seperation maps
@@ -363,11 +370,14 @@ class satellite_sim:
         plt.figure(figsize=(14, 4))
         plt.title(self.file_name+': Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
         
-        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], self.simulation_slice, color='red', label='Model')      
+        simulation = self.simulation_slice
+        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], simulation, color='red', label='Model')      
         
         if self.sats_only==None:
             observation = self._average_over_frequency_(self.calibration_data_slice)
-            plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation, '-', color='black', label='Data')      
+            plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation, '-', color='black', label='Data')   
+        else:
+            observation=[]
         
         if self.add_BG==None:
             bg_noise = 0 
@@ -398,11 +408,16 @@ class satellite_sim:
         plt.tight_layout()
         if save_file !=None:
             plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
-                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.'+self.file_type)
+                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
+            
+            
+            data_dump = {'frequency':self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]],
+                         'simulation':simulation,
+                         'observation':observation}
             
             # Saving the data to file
-            pickle.dump(observation, open(self.s1_data_loc+self.file_name+'_observation_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_tod.p', 'wb'))
+            pickle.dump(data_dump, open(self.s_data_loc+self.file_name+'_data_slice_nu_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
             
         else:
             plt.show()
@@ -435,8 +450,7 @@ class satellite_sim:
         plt.tight_layout()
         if save_file !=None:
             plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
-                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_resultant.'+self.file_type)
-            
+                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_resultant_'+save_file+'.'+self.file_type)            
 
         else:
             plt.show()
@@ -482,11 +496,11 @@ class satellite_sim:
         plt.tight_layout()
         if save_file !=None:
             plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.'+self.file_type)
+                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
             # Saving the data to file
-            pickle.dump(data_slice, open(self.s1_data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_tod.p', 'wb'))
+            pickle.dump(data_slice, open(self.s_data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
             
         else:
             plt.show()
@@ -534,11 +548,11 @@ class satellite_sim:
         plt.tight_layout()
         if save_file !=None:
             plt.savefig(self.plots_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'.'+self.file_type)
+                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
             # Saving the file
-            pickle.dump(data_slice, open(self.s1_data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_tod.p', 'wb'))
+            pickle.dump(data_slice, open(self.s_data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
         else:
             plt.show()
 
