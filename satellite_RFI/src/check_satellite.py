@@ -366,7 +366,7 @@ class Satellite_Catalogue(object):
                        * np.cos(pointing_Az - coords_Az)
                 _angle = np.arccos(_angle) * 180. / np.pi
                 
-                '''--------Checking satellites coming close to MeerKAT pointing--------'''
+                '''--------Checking satellites coming close to telescope pointing--------'''
                 # The angle at which you want to check satellites
                 if close_angle is not None:
                     mask_angle = np.ones(_angle.shape)   # 2d angle shape
@@ -664,39 +664,40 @@ class Satellite_Catalogue(object):
         plt.show()
 
 
-class MeerKATsite_Satellite_Catalogue(Satellite_Catalogue):
+class Telescopesite_Satellite_Catalogue(Satellite_Catalogue):
 
     #def __init__(self, reload=False, source_url=None):
-    def __init__(self, *args, **kwargs):
+#     def __init__(self, *args, **kwargs):    # Can also remove will call the parent class init function
 
-        super(MeerKATsite_Satellite_Catalogue, self).__init__(*args, **kwargs)
+#         super(Telescopesite_Satellite_Catalogue, self).__init__(*args, **kwargs)  # Will automatically call this function
+        
+#         MeerKAT information
+#         telescope_Lon =  (21. + 26./60. + 38.00/3600.) * u.deg #
+#         telescope_Lat = -(30. + 42./60. + 47.41/3600.) * u.deg #
+#         self.obs_location = [telescope_Lat, telescope_Lon]
 
-        meerKAT_Lon =  (21. + 26./60. + 38.00/3600.) * u.deg #
-        meerKAT_Lat = -(30. + 42./60. + 47.41/3600.) * u.deg #
-        self.obs_location = [meerKAT_Lat, meerKAT_Lon]
+#     def get_angular_separation(self, pointings, beam_func=None):    # Was built for the default function
 
-    def get_angular_separation(self, pointings, beam_func=None):
+#         """Obsolete, beam function are given in the beam function package"""
+# #         if beam_func is None:
+# #             # using modified sinc function, quite close to Khan's model
+# #             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
 
-        """Obsolete, beam function are given in the beam function package"""
-#         if beam_func is None:
-#             # using modified sinc function, quite close to Khan's model
-#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+#         super(Telescopesite_Satellite_Catalogue, self).get_angular_separation(
+#                 pointings, beam_func=beam_func)
 
-        super(MeerKATsite_Satellite_Catalogue, self).get_angular_separation(
-                pointings, beam_func=beam_func)
-
-    def check_angular_separation(self, pointings, max_angle=None, beam_func=None,
-            ymin=None, ymax=None, axes=None):
+#     def check_angular_separation(self, pointings, max_angle=None, beam_func=None,     
+#             ymin=None, ymax=None, axes=None):
         
 
-        """Obsolete, beam function are given in the beam function package"""
-#         if beam_func is None:
-#             # using modified sinc function, quite close to Khan's model
-#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+#         """Obsolete, beam function are given in the beam function package"""    # Was built the same
+# #         if beam_func is None:
+# #             # using modified sinc function, quite close to Khan's model
+# #             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
          
-        return super(MeerKATsite_Satellite_Catalogue, self).check_angular_separation(
-            pointings, max_angle=max_angle,
-            beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
+#         return super(Telescopesite_Satellite_Catalogue, self).check_angular_separation(
+#             pointings, max_angle=max_angle,
+#             beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
 
 
 
