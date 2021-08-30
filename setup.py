@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='satellite_RFI',
-    version='0.0.6',
+    version='0.0.9',
     description='This package contains GNSS satellite simulation for HI IM',
     author='Brandon Engelbrecht',
     author_email='engelbrechtbn@gmail.com',
