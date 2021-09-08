@@ -63,12 +63,14 @@ def get_sat_tles(sattype='geo', reload=False, source_url=None):
 def __get_sat_coord__(key, obs_time, obs_location, sats):
 
     coords = []
+    r_dis = []       # Edit
     #for key in keys:
     satellite = sats[key]
     topcentric = (satellite - obs_location).at(obs_time)
     alt, az, distance = topcentric.altaz()
     coords.append([az.radians, alt.radians])
-    return [coords, key]
+    r_dis.append(distance.m)   # Edit
+    return [coords, key, r_dis]  # Edit
 
 def get_sat_coods(sats, obs_time_list, obs_location):
     #for obs_time in obs_time_list:
@@ -81,6 +83,7 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     obs_time = load.timescale(builtin=True).utc(*obs_time[:5] + (obs_time_range,))
     coords = []
     name = []
+    distance = []  # Edit
 
     pool =  Pool(16)
     r = pool.map(partial(__get_sat_coord__, sats=sats, 
@@ -88,13 +91,15 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     for _r in r:
         coords.append(_r[0][0])
         name.append(_r[1])
+        distance.append(_r[2])  # Edit
     pool.close()
     pool.join()
 
     name = np.array(name)
     coords = np.array(coords)
     coords = np.rollaxis(coords, -1, 0)
-    return coords, name
+    distance = np.array(distance)  # Edit
+    return coords, name, distance
 
 def unix_convert(tlist, sel):
     """
@@ -237,10 +242,12 @@ class Satellite_Catalogue(object):
         #obs_time_list = self.obs_time + self.obs_time_list
         coord_list_total = []
         name_list_total = []
+        distance_list_total = []   # Edit
         for oo, obs_start_time in enumerate(self.obs_time):
             obs_time_list = obs_start_time + self.obs_time_list[oo]
             coord_list = []
             name_list  = []
+            distance_list = []   # Edit
             delete_list = []
             print "Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc)
             for ii, sat_type in enumerate(self.sats_type):
@@ -257,8 +264,7 @@ class Satellite_Catalogue(object):
                     print '[Removing this constellation from sats_type]'
                 
                 else:
-                    coord_list_sats, name_list_sats\
-                            = get_sat_coods(sats, obs_time_list, self.obs_location)
+                    coord_list_sats, name_list_sats, distance_list_sats = get_sat_coods(sats, obs_time_list, self.obs_location)   # Edit
 
                     coord_list_sats_ma = []   # To store the masked values
                     for jj in range(len(tlist_)):
@@ -283,6 +289,7 @@ class Satellite_Catalogue(object):
 
                     coord_list.append(coord_list_sats_ma)
                     name_list.append(name_list_sats)
+                    distance_list.append(distance_list_sats)   # Edit
                     print " [use %6.2f s]"%(time.time() - t0)
 
                 coord_list_total.append(coord_list)
@@ -312,11 +319,22 @@ class Satellite_Catalogue(object):
             except IndexError:
                 continue 
 
-            coord_sats_total.append(ma.masked_array(constellation_list))   
+            coord_sats_total.append(ma.masked_array(constellation_list)) 
+            
+        """
+        This section is to reduce a dimension in the distance data
+        """
+        
+        for rr in range(len(distance_list)):
+            # An extra dimension inside distance [xx,yy,zz] so we are removing yy dimension which is not needed or why it is there???
+            stand_in = np.zeros((distance_list[rr].shape[0], distance_list[rr].shape[2]))
+            stand_in = distance_list[rr][:,0,:]
+            distance_list[rr] = stand_in     # Overwriting the distance information from 3d obj. to 2d obj. 
 
         self.coord_list = [coord_sats_total]
         self.name_list  = name_list_total       # Holds naming information for the individual satellites that remain
-
+        self.distance_list = distance_list   # Note the mask used in coord_list should be applied here, but we assuming the mask will work further down 
+    
         
         
     def itersats_temperature(self, pointings, beam_func=None, close_angle=None):
@@ -381,8 +399,9 @@ class Satellite_Catalogue(object):
                 '''--------------------------------------------------------------------'''
                 if beam_func is not None:
                     _angle = beam_func(_angle)
+                    _angle /= self.distance_list[ii].T**2       # Edit - divided the distance (r^2) from _angle
 
-                yield obs_time_list, self.sats_type[ii], sats_name, _angle
+                yield self.sats_type[ii], sats_name, _angle
 
                 
                 
