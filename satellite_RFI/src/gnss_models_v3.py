@@ -32,31 +32,31 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 
     if name_gnss=='gps-ops':
         name = 'GPS'
-        r = 20180 * 1000 # Distance in metres
+#         r = 20180 * 1000 # Distance in metres
 
     elif name_gnss=='glo-ops':
         name = 'GLO'
-        r = 19130 * 1000 # Distance in meters
+#         r = 19130 * 1000 # Distance in meters
 
     elif name_gnss=='galileo':
         name = 'GAL'
-        r = 23220 * 1000 # Distance in metres
+#         r = 23220 * 1000 # Distance in metres
 
     elif name_gnss=='beidou':
         name = 'BDS'
-        r = 21530 * 1000 # Distance in meters
+#         r = 21530 * 1000 # Distance in meters
 
     elif name_gnss=='irnss':
         name = 'IRNSS'
-        r = 35790 * 1000  # Distance in meters
+#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='qzs':
         name = 'QZS'
-        r = 35790 * 1000  # Distance in meters
+#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='sbas':
         name = 'SBAS'
-        r = 35790 * 1000  # Distance in meters
+#         r = 35790 * 1000  # Distance in meters
 
     else:
         print ('Oops, make the sure name is written as GPS or Galileo or GLONASS')
@@ -90,7 +90,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
         if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
             power = 0
         else:
-            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi*r**2) 
+            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi)# Edit *r**2) 
 
         if 'BPSK(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
