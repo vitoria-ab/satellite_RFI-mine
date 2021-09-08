@@ -100,16 +100,14 @@ class satellite_sim:
                                                                     end_time=obs_time_end, 
                                                                     start_frequency=obs_frequency_start, 
                                                                     end_frequency=obs_frequency_end)
-        
-#         if self.sats_only==None:
-#             """
-#             sats_only != None: Allows for the observational data to be used
-#             """
-        # Observational data
-        self.calibration_data, self.calibration_data_original, self.calibration_data_noise = self.get_calibration_data()
 
-        # Calibration data slice
-        self.calibration_data_slice, self.calibration_noise_slice = self.get_data_slice()
+
+        if self.sats_only==None:
+            # Observational data
+            self.calibration_data, self.calibration_data_original, self.calibration_data_noise = self.get_calibration_data()
+            
+            # Calibration data slice
+            self.calibration_data_slice, self.calibration_noise_slice = self.get_data_slice()
 
         
         # Satellite simulation slice
@@ -151,12 +149,15 @@ class satellite_sim:
         
         self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, 
                                                           log_scale=logger, limit=axis_limit)
-       
-        self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
-                                                          log_scale=logger, limit=axis_limit)
+
         
         self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
+       
         if self.sats_only == None:
+       
+            self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
+                                                              log_scale=logger, limit=axis_limit)
+
             self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)  
             
 ## PLOTTING SECTION-END##
@@ -253,7 +254,7 @@ class satellite_sim:
     #-------------------------------------------S4-----------------------------------------------------------------
 
     def get_slice_idx(self, start_time=None, end_time=None, start_frequency=None, end_frequency=None):
-        '''
+        '''emss_b.calibration_data_slice
         A function that provides the idx that you wish to slice from
         start_time - the beginning of the scan period - 774 seconds
         end_time - the end of the scan period - 6474 seconds
@@ -372,7 +373,7 @@ class satellite_sim:
         plt.title(self.file_name+': Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
         
         simulation = self.simulation_slice
-        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], simulation, color='red', label='Model')      
+        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], simulation, color='cyan', label='Model')      
         
         if self.sats_only==None:
             observation = self._average_over_frequency_(self.calibration_data_slice)
@@ -416,9 +417,9 @@ class satellite_sim:
                          'simulation':simulation,
                          'observation':observation}
             
-            # Saving the data to file
-            pickle.dump(data_dump, open(self.s_data_loc+self.file_name+'_data_slice_nu_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+#             # Saving the data to file
+#             pickle.dump(data_dump, open(self.data_loc+self.file_name+'_data_slice_nu_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
             
         else:
             plt.show()
@@ -500,7 +501,7 @@ class satellite_sim:
                         '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
             # Saving the data to file
-            pickle.dump(data_slice, open(self.s_data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+            pickle.dump(data_slice, open(self.data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
             
         else:
@@ -551,9 +552,9 @@ class satellite_sim:
             plt.savefig(self.plots_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
                         '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
-            # Saving the file
-            pickle.dump(data_slice, open(self.s_data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+#             # Saving the file
+#             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
         else:
             plt.show()
 
