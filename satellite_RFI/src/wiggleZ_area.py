@@ -35,6 +35,9 @@ def area(fname, file_path):
             #data = katdal.open('/idia/projects/hi_im/'+fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
             data = katdal.open('/idia/projects/hi_im//1562857793/1562857793/1562857793_sdp_l0.full.rdb')
             #data=katdal.open('https://archive-gw-1.kat.ac.za/1562857793/1562857793_sdp_l0.full.rdb', s3_endpoint_url='https://archive-gw-1.kat.ac.za', token='eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNTY5MjQ2NjYxLCJwcmVmaXgiOlsiMTU2Mjg1Nzc5MyJdLCJleHAiOjE1Njk4NTE0NjEsInN1YiI6ImRldiIsInNjb3BlcyI6WyJyZWFkIl19.AYQXK8B8O8o65295-w9UcoIJwu6s1eKdMH-B3dN0wWO_45rRTEM03tz4_DSPSrgypzQYGw_aB2Yi9vMdcHHLzg')
+        if fname=='1630519596':
+            data = katdal.open('https://archive-gw-1.kat.ac.za/1630519596/1630519596_sdp_l0.full.rdb?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNjMwNTk0Njc1LCJwcmVmaXgiOlsiMTYzMDUxOTU5NiJdLCJleHAiOjE2MzExOTk0NzUsInN1YiI6Im1ncnNhbnRvc0B1d2MuYWMuemEiLCJzY29wZXMiOlsicmVhZCJdfQ.dWfpPmRpQlL2ImO_a4TZ3sJ5LYNoAVFAoVKUYPn_RdgbApWJ9fKCadmAMyP1n4WcsEL99gfi2ZGvuiD9FoUCXQ')
+            
     #
         ant_num_used=len(data.ants)
         nd_set=float(fname)

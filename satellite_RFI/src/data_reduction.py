@@ -27,8 +27,9 @@ font_s = {'family': 'serif',
 
 class Data_reduction:
     def __init__(self,
-                 folder_name = None,
-                 file_name = None,
+                 folder_name=None,
+                 file_name=None,
+                 user_input=None,
                  folder_output=None,
                  obs_data_loc = '/idia/projects/hi_im/',
                  vis_data_loc = '/idia/projects/hi_im/raw_vis/',
@@ -38,6 +39,8 @@ class Data_reduction:
                 self.folder_name = folder_name
                 
                 self.file_name = file_name
+                
+                self.user_input = user_input
 
                 self.folder_output = folder_output
                 
@@ -50,21 +53,23 @@ class Data_reduction:
                 self.freqs, self.timestamps =  self.freqs_and_time()                  
             
             
-    def get_obs_data(self, obs_data_loc, user_input = None):
+    def get_obs_data(self, obs_data_loc):
         '''
         Calling the full data set that is defined at some location
         obs_data_loc - Location of the full data set (.rdb files)
         '''
         data = None
+        print ;
         try:
-            if user_input == None:
+            if self.user_input == None:
         
                 fname = self.file_name
         
                 data = katdal.open(obs_data_loc + self.folder_name+'/'+ fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
             
             else:
-                data = katdal.open(user_input)
+                print 'user input data'
+                data = katdal.open(self.user_input)
                 
         except Exception as e:
             print 'File not found :('
