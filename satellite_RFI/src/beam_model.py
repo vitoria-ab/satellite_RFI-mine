@@ -2,6 +2,7 @@ import numpy as np
 from astropy.io import fits
 from scipy.interpolate import interp1d, interp2d
 import pickle
+# ----------------------------------------------------------------------------------------------------
 
 def _Khans_beam_model(phi=None):
 
@@ -104,6 +105,7 @@ def get_factor_from_Khans_beam(freq, angle=0.5, phi=None):
     return factor(freq)
 
 
+# ----------------------------------------------------------------------------------------------------
 
 def Cosine_beam_model(freq):
 
@@ -118,6 +120,7 @@ def Cosine_beam_model(freq):
     B=4
     return lambda x: (np.cos( A*np.pi*x[None, ...]/fwhm)/(1-B*(A*x[None, ...]/fwhm)**2))**2
 
+# ----------------------------------------------------------------------------------------------------
 
 class unsorted_interp2d(interp2d):
     '''
@@ -127,6 +130,8 @@ class unsorted_interp2d(interp2d):
         unsorted_idxs = np.argsort(np.argsort(x))
         return interp2d.__call__(self, x, y, dx=dx, dy=dy)[:, unsorted_idxs]
 
+# ---------------------------------------------------------------------------------------------------- 
+    
 def emss_beam(freq, theta):
     '''
     Using the EMSS beam function, an interpolation that takes in:
@@ -152,8 +157,13 @@ def emss_beam(freq, theta):
     
     # Checking to see if thet is a masked array, then only the data is used
     if isinstance(theta, np.ma.core.MaskedArray):
+        masked = 'y'
         theta_mask = theta.mask
         theta = np.array(theta)
+    
+    else:
+        theta = np.array(theta)
+        masked = None
     
     # Shape checking
     f_shape = freq.shape
@@ -163,11 +173,13 @@ def emss_beam(freq, theta):
     
     if theta.ndim==1:
         interp = P_interp(theta, freq)
-        interp = np.ma.array(interp, mask=interp*theta_mask[np.newaxis,:])  
+        if masked=='y':
+            interp = np.ma.array(interp, mask=interp*theta_mask[np.newaxis,:])  
     elif theta.ndim==2:
         interp = np.array([P_interp(theta[:,i], freq).T for i in range(th_shape[1])]).T
         # Broadcasting the 2d mask across 3d axis
-        interp = np.ma.array(interp, mask=interp*theta_mask[np.newaxis,:,:])  
+        if masked=='y':
+            interp = np.ma.array(interp, mask=interp*theta_mask[np.newaxis,:,:])  
 
     return interp
 
@@ -176,4 +188,39 @@ def emss_beam_model(f):
     '''Takes in frequency values and creates a function for lambda values'''
     return lambda th : emss_beam(freq=f, theta=th)
 
+# ----------------------------------------------------------------------------------------------------
 
+def khan_emss_beam(freqs, theta):
+    '''
+    Fucntion that combines the khan beam and emss beam together. Assumes symmetry for Khan's beam
+    Works only for masked arrays
+    '''
+    khan = Khans_beam_model(freq=freqs, theta=None)
+    emss = emss_beam_model(f=freqs)
+    
+    if isinstance(theta, np.ma.core.MaskedArray):
+        masked = 'y'
+        
+        theta_d = theta.data
+        theta_m = theta.mask
+    
+        k_angle = khan(theta_d)
+        e_angle = 0.2*emss(theta_d)
+        
+    else:
+        masked=None
+        k_angle = khan(theta)
+        e_angle = 0.2*emss(theta)
+        
+    
+    khan_emss = np.where(k_angle==0, e_angle, k_angle)
+    if masked=='y':
+        khan_emss = np.ma.array(khan_emss, mask=khan_emss*theta_m[np.newaxis,:,:])
+    
+    return khan_emss
+
+def khan_emss_beam_model(f):
+    '''Takes in the frequency values and and returns a function for theta values.'''
+    return lambda th : khan_emss_beam(freqs=f, theta=th)
+
+# ----------------------------------------------------------------------------------------------------

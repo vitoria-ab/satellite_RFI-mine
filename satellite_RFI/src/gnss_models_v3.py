@@ -98,7 +98,6 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             model = psd.BPSK(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
                              f0=data_sub['Rate(MHz)'][i] / T_c)
 
-#                 print T_c, data_sub['Rate(MHz)'][i] / T_c
 
         if 'BOC(' in data_sub['Modulation'][i]:
             try:
@@ -109,7 +108,6 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
                                  n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c)
             # Bad method of by-passing TMBOC values
 
-#                     print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
             except ValueError, UnboundLocalError:
                 pass
@@ -122,7 +120,6 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             model = psd.BOCc(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c)
 
-#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
         if 'AltBOC(' in data_sub['Modulation'][i]:
             # Going to also catch TD-AltBOC
@@ -132,7 +129,6 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             model = psd.altBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_s=T_s,
                                n_c=T_c, f0=data_sub['Rate(MHz)'][i] / T_c)
 
-#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
         if 'TMBOC' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -141,7 +137,6 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             model = psd.TMBOC(f=frequency_gnss - data_sub['Frequency[MHz]'][i], n_c=T_c,
                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
-#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
 
         if 'CBOC' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -151,12 +146,22 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 
-#                 print T_s, T_c, data_sub['Rate(MHz)'][i] / T_c
-        model = np.array([0 if np.isnan(x) else x for x in model])
+
         
-#         Adding top-hat functions
-        model2 = af.tophat_rect(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
-                       band=band_lvl[0], level=band_lvl[1], values=model)
+        model = np.array([0 if np.isnan(x) else x for x in model])
+               
+        
+        if band_lvl[0]==None or band_lvl[1]==None:
+            model2 = model
+        else:
+            
+    #         Adding top-hat functions
+            # model2 = af.tophat_rect(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
+            #                band=band_lvl[0], level=band_lvl[1], values=model)
+
+    #       Adding gaussian oob
+            model2 = af.gaussian_oob(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
+                           band=band_lvl[0], sigma=band_lvl[1], values=model)
 
 
         sed.append(power * model2 * 1e26 / 1e6)  # In Jansky

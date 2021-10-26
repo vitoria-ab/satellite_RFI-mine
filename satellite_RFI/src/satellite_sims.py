@@ -87,13 +87,13 @@ class satellite_sim:
         
         # Bandwith and level of difference for attenuation
         self.band_lvl = band_lvl
-        
+                
         # Satellite TOD
-        self.satellite_TOD, self.satellite_SED = self.get_gnss_simulaton()
+        self.satellite_TOD, self.satellite_SED = self.get_gnss_simulation()
         
         # BG Noise: subtract the observational data; add to the simulations
         self.add_BG,  self.sub_BG = add_sub
-        
+       
         
         # Slice idx in the frequency and the time
         self.time_idx, self.frequency_idx = self.get_slice_idx(start_time=obs_time_start, 
@@ -225,7 +225,7 @@ class satellite_sim:
             print fname+'-Satellite angular seperation not found :('
                         
         
-    def get_gnss_simulaton(self):
+    def get_gnss_simulation(self):
         '''
         Get the TOD maps of the satellites and our data.
         For all the different types of satellites
@@ -268,7 +268,7 @@ class satellite_sim:
         else:
             st_pos = (np.where(self.nd_s0 > start_time)[0][0])
             et_pos = (np.where(self.nd_s0 > end_time)[0][0])
-            print 'Time between: '+str(self.nd_s0[st_pos])+' and '+str(self.nd_s0[et_pos])+' in seconds\n'
+#             print 'Time between: '+str(self.nd_s0[st_pos])+' and '+str(self.nd_s0[et_pos])+' in seconds\n'
             
             
         # Slicing in the frequency domain:
@@ -277,7 +277,7 @@ class satellite_sim:
         else:
             sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])
             ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])
-            print 'Frequency between: '+str(self.frequency_band[sf_pos-1])+' and '+str(self.frequency_band[ef_pos+1])+' in MHz\n'
+#             print 'Frequency between: '+str(self.frequency_band[sf_pos-1])+' and '+str(self.frequency_band[ef_pos+1])+' in MHz\n'
             
         return (st_pos, et_pos), (sf_pos-1, ef_pos+1)
     
@@ -324,12 +324,12 @@ class satellite_sim:
             bias_choice = np.loadtxt(fname=self.bias_choice_loc+(file_bias_choice)+'.txt', delimiter=' ')
         
         elif type(file_bias_choice)==list:
-            print 'Bias choice is follows:'+', '.join(self.satellite_type) +', noise'
+#             print 'Bias choice is follows:'+', '.join(self.satellite_type) +', noise'    # Taken out to speed up process
             bias_choice = file_bias_choice
         
         else:
             print  'Enter the '+str(len(self.satellite_type)+1)+' bias choices for the following: '
-            print ', '.join(self.satellite_type) +', noise'
+#             print ', '.join(self.satellite_type) +', noise'
             bias_choices_input = raw_input('Enter elements of a list separated by space ')
             bias_choice = [int(i) for i in bias_choices_input.split()]
         
@@ -392,7 +392,7 @@ class satellite_sim:
             for i in range(len(self.satellite_type)):
                 plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], 
                          self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + self.bias_choice[-1] + bg_noise, 
-                         label=self.satellite_type[i]+'  x'+str(self.bias_choice[i]))
+                         label=self.satellite_type[i]+'  x'+str(np.round(self.bias_choice[i],3)))
             plt.ylim(bottom=1e-2)
 
         
@@ -465,13 +465,13 @@ class satellite_sim:
         '''
         
 
-        extent = [self.nd_s0[self.time_idx[0]], self.nd_s0[self.time_idx[1]], 
-                  self.frequency_band[self.frequency_idx[1]], self.frequency_band[self.frequency_idx[0]]]
+        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
 
         plt.figure()
         plt.title(self.file_name+'-Observation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Frequency [MHz]')
+        plt.ylabel('Time [s]')
+        plt.xlabel('Frequency [MHz]')
         
         data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
         
@@ -479,18 +479,18 @@ class satellite_sim:
         
         if log_values==None:
             if vlimits==None:
-                hb=plt.imshow(np.log10(data_slice), extent=extent, aspect='auto')
+                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
             else:
-                hb=plt.imshow(np.log10(data_slice), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
             
             cbar = plt.colorbar(hb)
             cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
 
         else:
             if vlimits==None:
-                hb=plt.imshow((data_slice), extent=extent, aspect='auto')
+                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
             else:
-                hb=plt.imshow((data_slice), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
        
             cbar = plt.colorbar(hb)
             cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
@@ -508,7 +508,6 @@ class satellite_sim:
             plt.show()
             
             
-            
    # Work in progress
     def _get_TOD_sim_maps_(self, log_values=None, vlimits=None, save_file=None):
         '''
@@ -517,13 +516,13 @@ class satellite_sim:
         '''
 
 
-        extent = [self.nd_s0[self.time_idx[0]], self.nd_s0[self.time_idx[1]], 
-                  self.frequency_band[self.frequency_idx[1]], self.frequency_band[self.frequency_idx[0]]]
+        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
 
         plt.figure()
         plt.title(self.file_name+'-Simulation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Frequency [MHz]')
+        plt.ylabel('Time [s]')
+        plt.xlabel('Frequency [MHz]')
         
         data_slice = self.simulation_TOD_slice
         
@@ -531,18 +530,18 @@ class satellite_sim:
         
         if log_values==None:
             if vlimits==None:
-                hb=plt.imshow(np.log10(data_slice), extent=extent, aspect='auto')
+                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
             else:
-                hb=plt.imshow(np.log10(data_slice), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
             
             cbar = plt.colorbar(hb)
             cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
 
         else:
             if vlimits==None:
-                hb=plt.imshow((data_slice), extent=extent, aspect='auto')
+                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
             else:
-                hb=plt.imshow((data_slice), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
        
             cbar = plt.colorbar(hb)
             cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)

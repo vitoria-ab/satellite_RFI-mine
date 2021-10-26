@@ -63,14 +63,17 @@ def get_sat_tles(sattype='geo', reload=False, source_url=None):
 def __get_sat_coord__(key, obs_time, obs_location, sats):
 
     coords = []
+    coords_rd = []
     r_dis = []       # Edit
     #for key in keys:
     satellite = sats[key]
     topcentric = (satellite - obs_location).at(obs_time)
     alt, az, distance = topcentric.altaz()
+    ra, dec, distance2 = topcentric.radec()
     coords.append([az.radians, alt.radians])
+    coords_rd.append([ra, dec])
     r_dis.append(distance.m)   # Edit
-    return [coords, key, r_dis]  # Edit
+    return [coords, key, r_dis, coords_rd]  # Edit
 
 def get_sat_coods(sats, obs_time_list, obs_location):
     #for obs_time in obs_time_list:
@@ -84,6 +87,7 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     coords = []
     name = []
     distance = []  # Edit
+    coords_rd = []
 
     pool =  Pool(16)
     r = pool.map(partial(__get_sat_coord__, sats=sats, 
@@ -92,6 +96,7 @@ def get_sat_coods(sats, obs_time_list, obs_location):
         coords.append(_r[0][0])
         name.append(_r[1])
         distance.append(_r[2])  # Edit
+        coords_rd.append(_r[3]) # ra and dec
     pool.close()
     pool.join()
 
@@ -99,7 +104,8 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     coords = np.array(coords)
     coords = np.rollaxis(coords, -1, 0)
     distance = np.array(distance)  # Edit
-    return coords, name, distance
+    coords_rd = np.array(coords_rd)
+    return coords, name, distance, coords_rd
 
 def unix_convert(tlist, sel):
     """
@@ -264,7 +270,7 @@ class Satellite_Catalogue(object):
                     print '[Removing this constellation from sats_type]'
                 
                 else:
-                    coord_list_sats, name_list_sats, distance_list_sats = get_sat_coods(sats, obs_time_list, self.obs_location)   # Edit
+                    coord_list_sats, name_list_sats, distance_list_sats, coords_rd_list_sats = get_sat_coods(sats, obs_time_list, self.obs_location)   # Edit
 
                     coord_list_sats_ma = []   # To store the masked values
                     for jj in range(len(tlist_)):
@@ -299,7 +305,7 @@ class Satellite_Catalogue(object):
         """
         Deleting any satellite constellation that do not show from the list
         """
-        self.sats_type = [element for (i,element) in enumerate(self.sats_type) if i not in delete_list]
+        self.sats_type_remain = [element for (i,element) in enumerate(self.sats_type) if i not in delete_list]
         
         
         """
@@ -307,6 +313,7 @@ class Satellite_Catalogue(object):
         section of the code. Will comment tomorrow
         """
         coord_sats_total = []
+
         for jj in range(len(coord_list_total[0])):
 
             cons_sats = ma.masked_array(coord_list_total[0][jj])
@@ -320,6 +327,7 @@ class Satellite_Catalogue(object):
                 continue 
 
             coord_sats_total.append(ma.masked_array(constellation_list)) 
+
             
         """
         This section is to reduce a dimension in the distance data
@@ -370,7 +378,7 @@ class Satellite_Catalogue(object):
             pointing_Alt = pointings[oo][:, 1][:, None] * np.pi / 180.
 
             angle_separation_list = []
-            for ii in tqdm(range(len(self.sats_type))):
+            for ii in tqdm(range(len(self.sats_type_remain))):
 
                 coords = coord_list[ii]
 #                 coords = np.array(coords)
@@ -385,7 +393,7 @@ class Satellite_Catalogue(object):
                 _angle = np.arccos(_angle) * 180. / np.pi
                 
                 '''--------Checking satellites coming close to telescope pointing--------'''
-                # The angle at which you want to check satellites
+                # TThe angle at which you want to check satellites on closest approach
                 if close_angle is not None:
                     mask_angle = np.ones(_angle.shape)   # 2d angle shape
                     for i in range(_angle.shape[1]):     # running
@@ -401,7 +409,7 @@ class Satellite_Catalogue(object):
                     _angle = beam_func(_angle)
                     _angle /= self.distance_list[ii].T**2       # Edit - divided the distance (r^2) from _angle
 
-                yield self.sats_type[ii], sats_name, _angle
+                yield self.sats_type_remain[ii], sats_name, _angle
 
                 
                 
@@ -428,7 +436,7 @@ class Satellite_Catalogue(object):
             pointing_Alt = pointings[oo][:, 1][:, None] * np.pi / 180.
 
             angle_separation_list = []
-            for ii in range(len(self.sats_type)):
+            for ii in range(len(self.sats_type_remain)):
 
                 coords = coord_list[ii]
 #                 coords = ma.masked_array(coords)  # Already a masked array (can check)
@@ -470,7 +478,7 @@ class Satellite_Catalogue(object):
             
             # Edit - list to save satellite angles with respect to the pointing 
             satellite_angle = []
-            for ii in range(len(self.sats_type)):
+            for ii in range(len(self.sats_type_remain)):
 
                 _angle = self.angle_separation_list[oo][ii]
                 _angle = np.ma.masked_greater(_angle, max_angle)
@@ -523,7 +531,7 @@ class Satellite_Catalogue(object):
                     theta_offset=0.5 * np.pi, theta_direction=-1)
             
             legend_list = []
-            for ii in range(len(self.sats_type)):
+            for ii in range(len(self.sats_type_remain)):
 
                 
                 coords = coord_list[ii]
@@ -575,7 +583,7 @@ class Satellite_Catalogue(object):
         _sats_list2 = []
 
         legend_list = []
-        for ii in range(len(self.sats_type)):
+        for ii in range(len(self.sats_type_remain)):
             coords_1 = coord_list_1[ii]
             coords_1 = np.array(coords_1)
 
