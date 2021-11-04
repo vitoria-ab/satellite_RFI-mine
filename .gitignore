@@ -1,4 +1,6 @@
 .ipynb_checkpoints
 *.pyc
 satellite_RFI.egg-info
+Notebooks/Satellite_position/Satellite_position_TESTING.ipynb
+Notebooks/Satellite_simulations/Satellite_simulations-testing.ipynb
 
