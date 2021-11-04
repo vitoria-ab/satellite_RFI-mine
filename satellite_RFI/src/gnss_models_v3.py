@@ -72,13 +72,13 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
 #         data = data.sort_values(by = 'Frequency[MHz]')
 #-----# Looking at all frequency below 1500 MHz
 
-    data = data[data['Frequency[MHz]']< 1700]
+    data = data[data['Frequency[MHz]']< 1700]    # Line could come out
 #------# Changing the rate values
 #         data.loc[data['Rate(MHz)'] != 1.023, 'Rate(MHz)'] = 1.023
 
 
 
-    # Extracting smaller data table
+    # Extracting smaller data table for each name
     data_sub = data[data[data.columns[0]].str.contains(name)]
 
     # Making the Spectral Energy density list
@@ -87,10 +87,15 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
     # Looping through all the sub-data index
     for i in data_sub.index:
 
-        if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
+#         if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
+#             power = 0
+#         else:
+#             power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi)# Edit *r**2) 
+        
+        if data_sub['P_txG_t(dB)'][i]==0:
             power = 0
         else:
-            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi)# Edit *r**2) 
+            power = 10**(data_sub['P_txG_t(dB)'][i]/10) / (4*np.pi)    # Alpha term should go here*****
 
         if 'BPSK(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -189,7 +194,7 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, ex
     '''
     
     sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, band_lvl=band_lvl, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
-    sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellites togther
+    sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellite signals togther
     
     # Multiplied with the gains
     sats_model_tc = sats_model_t * cc.c.value**2 / cc.k_B.value / 4 / np.pi / (frequency_tod*1e6)**2 / 1e26  # Multiplying the constants, look at the page to see the units
