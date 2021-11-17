@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import astropy.constants as cc
-import psd_models_v2 as psd
+from satellite_RFI.src import psd_models_v2 as psd
 from fractions import Fraction
-import attenuation_function as af
+from satellite_RFI.src import attenuation_function as af
 #-------------------------------------------------------------_#
 
 def floaty(x):
@@ -13,14 +13,22 @@ def floaty(x):
     '''
     try:
         a = float(x)
-    except ValueError:
+    except (ValueError):
         a = float(Fraction(x))
 
     return a
 
+def signal_cosntant(x):
+    '''
+    A function to return the alpha values
+    '''
+    return np.ones(len(x))
+
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_loc=None):
+# def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_loc=None):
+def gnss_satellites(name_gnss, frequency_gnss, band_lvl, sat_cat_data):
+
     '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
     name_gnss - Satellite name
     frequency_gnss - Frequency list of satellites
@@ -62,40 +70,35 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
         print ('Oops, make the sure name is written as GPS or Galileo or GLONASS')
         return -1
 
-    if excel_loc==None:
-        data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-    else:
-        data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-
+#     if excel_loc==None:
+#         data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+#     else:
+#         data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
 
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
 #-----# Looking at all frequency below 1500 MHz
 
-    data = data[data['Frequency[MHz]']< 1700]    # Line could come out
+#     data = data[data['Frequency[MHz]']< 1700]    # Line could come out
 #------# Changing the rate values
 #         data.loc[data['Rate(MHz)'] != 1.023, 'Rate(MHz)'] = 1.023
 
 
 
     # Extracting smaller data table for each name
-    data_sub = data[data[data.columns[0]].str.contains(name)]
-
+    data_sub = sat_cat_data[sat_cat_data[sat_cat_data.columns[0]].str.contains(name)]
+ 
     # Making the Spectral Energy density list
     sed = []
 
     # Looping through all the sub-data index
     for i in data_sub.index:
 
-#         if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
-#             power = 0
-#         else:
-#             power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi)# Edit *r**2) 
-        
-        if data_sub['P_txG_t(dB)'][i]==0:
+        if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
             power = 0
         else:
-            power = 10**(data_sub['P_txG_t(dB)'][i]/10) / (4*np.pi)    # Alpha term should go here*****
+            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) * data_sub['Alpha'][i] / (4*np.pi)# Edit *r**2) 
+        
 
         if 'BPSK(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -114,7 +117,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             # Bad method of by-passing TMBOC values
 
 
-            except ValueError, UnboundLocalError:
+            except (ValueError, UnboundLocalError):
                 pass
 
 
@@ -183,7 +186,9 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
     
 ## Function that returns the TOD values
 
-def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, excel_cat_loc):
+# def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, excel_cat_loc):
+def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, sat_cat_data):
+
     '''
     Returns the sat_temp in units of mK
     name - a str;
@@ -193,7 +198,7 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, ex
     excel_cat_loc - the location of the mask, if !None, you set the location, else location is the same
     '''
     
-    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, band_lvl=band_lvl, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
+    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, band_lvl=band_lvl, sat_cat_data=sat_cat_data)   # Calling another fucntion
     sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellite signals togther
     
     # Multiplied with the gains

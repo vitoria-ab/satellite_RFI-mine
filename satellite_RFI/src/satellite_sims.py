@@ -1,5 +1,6 @@
 from satellite_RFI.src import gnss_models_v3 as gm
 import pickle
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.gridspec as gridspec
@@ -25,8 +26,8 @@ class satellite_sim:
                  sat_loc=None,
                  survey_info=None,
                  plots_loc=None,
-                 sat_catalogue_name=None,
-                 sat_catalogue_loc=None,
+#                  sat_catalogue_name=None,
+#                  sat_catalogue_loc=None,
                  sat_beam=None,
                  frequency_range=None,
                  bias_choice_loc=''):
@@ -38,8 +39,8 @@ class satellite_sim:
         # Getting the outputs of katdal info:
         self.nd_s0, self.nd_s0_coords, self.frequency=survey_info[0], survey_info[1], survey_info[2]
         self.plots_loc=plots_loc
-        self.sat_catalogue=sat_catalogue_name
-        self.sat_catalogue_loc=sat_catalogue_loc
+#         self.sat_catalogue=sat_catalogue_name
+#         self.sat_catalogue_loc=sat_catalogue_loc
         self.sat_beam = sat_beam
         self.frequency_choice=frequency_range
         self.bias_choice_loc=bias_choice_loc
@@ -63,8 +64,8 @@ class satellite_sim:
         
 ## RUNNING CODE-START ##
 
-    def excecute(self, obs_time_start=None, obs_time_end=None, 
-                 obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None, 
+    def excecute(self, a_param, obs_time_start=None, obs_time_end=None, 
+                 obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None, sat_info=None, 
                  file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None]):
         '''
         A function which excutes all the function currently available to us. 
@@ -81,6 +82,10 @@ class satellite_sim:
         band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
         '''
         
+        self.sat_data = pd.read_csv(sat_info, header=0, engine='python')   # Get the chi2 here
+                
+        self.sat_data['Alpha'] = self.sat_data['Alpha'].mul(a_param, axis=0)   # Changing/Updating the alpha values
+
         
         # Sets the frequency band
         self.frequency_band = self.get_frequency_information() 
@@ -154,11 +159,16 @@ class satellite_sim:
         self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
        
         if self.sats_only == None:
-       
+            
+            self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file) 
+            
             self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
                                                               log_scale=logger, limit=axis_limit)
+            
+            self.TOD_residual = self._get_TOD_resid_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
+  
 
-            self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)  
+ 
             
 ## PLOTTING SECTION-END##
 
@@ -188,7 +198,7 @@ class satellite_sim:
         
         try:
             fname = self.file_name
-            data = pickle.load(open(self.data_loc+fname+'_average_TOD_BG_model.p'))
+            data = pickle.load(open(self.data_loc+fname+'_average_TOD_BG_model.p', 'rb'),encoding='latin1')
             
             Temp_tod = data['TOD Avg'].T
             Temp_noise = data['BG Model'].T
@@ -201,7 +211,7 @@ class satellite_sim:
             return Temp_res, Temp_tod, Temp_noise
 
         except Exception as e:
-            print fname+'-Calibration Information not found :('
+            print (fname+'-Calibration Information not found :(')
        
         
            
@@ -214,7 +224,7 @@ class satellite_sim:
         try:
             fname = self.file_name
             beam_choice = self.sat_beam
-            data = pickle.load(open(self.sat_loc+fname+'_satellite_angular_position_'+beam_choice+".p", "rb"))
+            data = pickle.load(open(self.sat_loc+fname+'_satellite_angular_position_'+beam_choice+".p", "rb"), encoding='latin1')
             
             Satellite_type = data["sat_name"]     # Contains the names of the constellations
             Satellite_angle = data["angular"]     # Contains the angular seperation maps
@@ -222,7 +232,9 @@ class satellite_sim:
             return Satellite_type, Satellite_angle
         
         except Exception as e:
-            print fname+'-Satellite angular seperation not found :('
+            print (fname+'-Satellite angular seperation not found :(')
+            
+            return 
                         
         
     def get_gnss_simulation(self):
@@ -230,20 +242,19 @@ class satellite_sim:
         Get the TOD maps of the satellites and our data.
         For all the different types of satellites
         '''
-        from gnss_models_v3 import TOD_sats
         
         satellite_TOD = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, excel_sat=self.sat_catalogue,
-                                             excel_cat_loc=self.sat_catalogue_loc)[0] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
+                                     sat_cat_data=self.sat_data)[0] for i, satellite_name in enumerate(self.satellite_type)])
 
         
         satellite_SED = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, excel_sat=self.sat_catalogue,
-                                             excel_cat_loc=self.sat_catalogue_loc)[1] for i, satellite_name in enumerate(self.satellite_type)])
+                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
+                                     sat_cat_data=self.sat_data)[1] for i, satellite_name in enumerate(self.satellite_type)])
         
         return satellite_TOD, satellite_SED
     
@@ -324,12 +335,13 @@ class satellite_sim:
             bias_choice = np.loadtxt(fname=self.bias_choice_loc+(file_bias_choice)+'.txt', delimiter=' ')
         
         elif type(file_bias_choice)==list:
-#             print 'Bias choice is follows:'+', '.join(self.satellite_type) +', noise'    # Taken out to speed up process
             bias_choice = file_bias_choice
-        
+    
+        elif type(file_bias_choice)==np.ndarray:
+            bias_choice = file_bias_choice
+  
         else:
-            print  'Enter the '+str(len(self.satellite_type)+1)+' bias choices for the following: '
-#             print ', '.join(self.satellite_type) +', noise'
+            print  ('Enter the '+str(len(self.satellite_type)+1)+' bias choices for the following: ')
             bias_choices_input = raw_input('Enter elements of a list separated by space ')
             bias_choice = [int(i) for i in bias_choices_input.split()]
         
@@ -554,6 +566,53 @@ class satellite_sim:
 #             # Saving the file
 #             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
 #                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+        else:
+            plt.show()
+            
+            
+    def _get_TOD_resid_maps_(self, log_values=None, vlimits=None, save_file=None):
+        
+        
+        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
+
+        plt.figure()
+        plt.title(self.file_name+'-Residual: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+        plt.ylabel('Time [s]')
+        plt.xlabel('Frequency [MHz]')
+        
+        data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
+        sim_slice = self.simulation_TOD_slice
+
+        residual_slice = data_slice - sim_slice
+        
+        if log_values==None:
+            if vlimits==None:
+                hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto')
+            else:
+                hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+            
+            cbar = plt.colorbar(hb)
+            cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
+
+        else:
+            if vlimits==None:
+                hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto')
+            else:
+                hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+       
+            cbar = plt.colorbar(hb)
+            cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
+
+        plt.tight_layout()
+        if save_file !=None:
+            plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
+            
+            # Saving the data to file
+            pickle.dump(data_slice, open(self.data_loc+self.file_name+'_residual_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+            
         else:
             plt.show()
 
