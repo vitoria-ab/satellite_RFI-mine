@@ -1,8 +1,8 @@
 {
- "display_name": "HI_IM PY2", 
+ "display_name": "HI_IM PY3", 
  "language": "python", 
  "argv": [
-  "singularity", "exec", "/idia/software/containers/hi_im-python2.7.simg", "/anaconda2/bin/python", 
+  "singularity", "exec", "/idia/software/containers/hi_im-python3.simg", "/anaconda3/bin/python", 
   "-m", 
   "IPython.kernel", 
   "-f", 
