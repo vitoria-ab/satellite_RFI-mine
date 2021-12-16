@@ -6,6 +6,37 @@ import numpy as np
 import matplotlib.gridspec as gridspec
 from tqdm.notebook import tqdm
 
+
+# ----------------------------------------FUNCTIONS---------------------------------------
+def specific_cons(constellation=None, satellite_list=None, angle_list=None):
+    '''
+    Function returns specific constellations based on the user needs
+    constellations: list of constellations which user wants: GPS, GLO, GAL, BDS, QZS, IRNSS, SBAS.
+    if constellations==None then will use all sat_types in satellite_list
+    satellite_list: the names of the different satellites in the list
+    angle_list: corresponding anglular seperation maps of the different sat_types
+    '''
+    if constellation==None:
+        name, angle = satellite_list, angle_list
+        
+    else:
+        angle, name = [],[]
+        for i in constellation:
+            if i=='BDS':
+                i='beidou'
+            match = [s for s in satellite_list if i.lower() in s][0]  # string match
+            pos = satellite_list.index(match)  # index position
+
+            name.append(match)
+            angle.append(angle_list[pos])
+
+        angle=np.array(angle)
+    
+    return name, angle
+
+
+# ------------------------------------------------------------------------------------------------------------------
+
 class satellite_sim:
     """
     An object which calculates the comparison between the Observational TOD and the simulated TOD.
@@ -18,6 +49,7 @@ class satellite_sim:
         sat_loc - Location of the satelite TOD
         sat_beam - The beam choice applied for the data eg: [emss_beam]
         bias_choice_loc - Location of the bias choice parameters for the satellites
+        constellations - list of constellations which user wants: GPS, GLO, GAL, BDS, QZS, IRNSS, SBAS. If constellations==None then will use all sat_types in satellite_list
     """
     def __init__(self, 
                  file_name=None, 
@@ -25,11 +57,11 @@ class satellite_sim:
                  data_loc=None, 
                  sat_loc=None,
                  survey_info=None,
+                 sat_info=None,
                  plots_loc=None,
-#                  sat_catalogue_name=None,
-#                  sat_catalogue_loc=None,
                  sat_beam=None,
                  frequency_range=None,
+                 constellations=None,
                  bias_choice_loc=''):
         
         self.file_name=file_name
@@ -38,12 +70,12 @@ class satellite_sim:
         self.sat_loc=sat_loc
         # Getting the outputs of katdal info:
         self.nd_s0, self.nd_s0_coords, self.frequency=survey_info[0], survey_info[1], survey_info[2]
+        self.sat_data = pd.read_csv(sat_info, header=0, engine='python')   # Get the chi2 here
         self.plots_loc=plots_loc
-#         self.sat_catalogue=sat_catalogue_name
-#         self.sat_catalogue_loc=sat_catalogue_loc
         self.sat_beam = sat_beam
         self.frequency_choice=frequency_range
         self.bias_choice_loc=bias_choice_loc
+        self.cons=constellations
                 
         
         #------------------------------------------------------
@@ -59,13 +91,21 @@ class satellite_sim:
         
         # Satellite positioning
         self.satellite_type, self.satellite_angle = self.get_satellite_angle_seperation()
+        self.satellite_type, self.satellite_angle = specific_cons(constellation=self.cons, satellite_list=self.satellite_type, angle_list=self.satellite_angle)
+        print ('Number of constellations: ',len(self.satellite_type))
         #------------------------------------------------------
+        
+        # Subsetting the data with the constellations of choice
+        self.sat_data=self.sat_data[self.sat_data['Sys'].str.contains('|'.join(self.cons))]
+        self.alpha_len=len(self.sat_data)
+        print ('Length of the satellite catalogue: ',self.alpha_len)
+        #-------------------------------------------------------
 
         
 ## RUNNING CODE-START ##
 
     def excecute(self, a_param, obs_time_start=None, obs_time_end=None, 
-                 obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None, sat_info=None, 
+                 obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None,
                  file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None]):
         '''
         A function which excutes all the function currently available to us. 
@@ -82,11 +122,16 @@ class satellite_sim:
         band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
         '''
         
-        self.sat_data = pd.read_csv(sat_info, header=0, engine='python')   # Get the chi2 here
-                
-        self.sat_data['Alpha'] = self.sat_data['Alpha'].mul(a_param, axis=0)   # Changing/Updating the alpha values
-
         
+                
+#         self.sat_data['Alpha'] = self.sat_data['Alpha'].mul(a_param, axis=0)   # Changing/Updating the alpha values
+
+
+        # Testing single paramter change -----------------------------------
+        self.sat_data.loc[:, 'Alpha']=a_param
+#         print (self.sat_data.head(14))
+        # ----------------------------------
+    
         # Sets the frequency band
         self.frequency_band = self.get_frequency_information() 
         
@@ -224,7 +269,7 @@ class satellite_sim:
         try:
             fname = self.file_name
             beam_choice = self.sat_beam
-            data = pickle.load(open(self.sat_loc+fname+'_satellite_angular_position_'+beam_choice+".p", "rb"), encoding='latin1')
+            data = pickle.load(open(self.sat_loc+str(fname)+'_satellite_angular_position_'+beam_choice+".p", "rb"), encoding='latin1')
             
             Satellite_type = data["sat_name"]     # Contains the names of the constellations
             Satellite_angle = data["angular"]     # Contains the angular seperation maps
@@ -341,9 +386,13 @@ class satellite_sim:
             bias_choice = file_bias_choice
   
         else:
-            print  ('Enter the '+str(len(self.satellite_type)+1)+' bias choices for the following: ')
-            bias_choices_input = raw_input('Enter elements of a list separated by space ')
-            bias_choice = [int(i) for i in bias_choices_input.split()]
+            print  ('Enter the '+str(len(self.satellite_type))+' bias choices and 1 noise bias for the following: ')
+            bias_choices_input = input('Enter elements of a list separated by space ')
+            try:
+                bias_choice = [int(i) for i in bias_choices_input.split()]
+            except ValueError:
+                print ('Seperate by SPACES')
+                bias_choice = [int(i) for i in bias_choices_input.split()]
         
         
         gnss_bias_model = np.nansum([satellite_TOD_slice[i]*bias_choice[i] for i in range(len(satellite_TOD_slice))], 0) #+ bias_choice[-1] Don't require this amplitude
@@ -403,7 +452,7 @@ class satellite_sim:
         if ALL!=None:
             for i in range(len(self.satellite_type)):
                 plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], 
-                         self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + self.bias_choice[-1] + bg_noise, 
+                         self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + bg_noise, 
                          label=self.satellite_type[i]+'  x'+str(np.round(self.bias_choice[i],3)))
             plt.ylim(bottom=1e-2)
 

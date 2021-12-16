@@ -40,34 +40,27 @@ def gnss_satellites(name_gnss, frequency_gnss, band_lvl, sat_cat_data):
 
     if name_gnss=='gps-ops':
         name = 'GPS'
-#         r = 20180 * 1000 # Distance in metres
 
     elif name_gnss=='glo-ops':
         name = 'GLO'
-#         r = 19130 * 1000 # Distance in meters
 
     elif name_gnss=='galileo':
         name = 'GAL'
-#         r = 23220 * 1000 # Distance in metres
 
     elif name_gnss=='beidou':
         name = 'BDS'
-#         r = 21530 * 1000 # Distance in meters
 
     elif name_gnss=='irnss':
         name = 'IRNSS'
-#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='qzs':
         name = 'QZS'
-#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='sbas':
         name = 'SBAS'
-#         r = 35790 * 1000  # Distance in meters
 
     else:
-        print ('Oops, make the sure name is written as GPS or Galileo or GLONASS')
+        print ('Oop, issue with the name')
         return -1
 
 #     if excel_loc==None:
@@ -86,7 +79,7 @@ def gnss_satellites(name_gnss, frequency_gnss, band_lvl, sat_cat_data):
 
 
     # Extracting smaller data table for each name
-    data_sub = sat_cat_data[sat_cat_data[sat_cat_data.columns[0]].str.contains(name)]
+    data_sub = sat_cat_data[sat_cat_data['Sys'].str.contains(name)]
  
     # Making the Spectral Energy density list
     sed = []

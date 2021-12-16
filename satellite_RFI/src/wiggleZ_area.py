@@ -408,6 +408,6 @@ def area(fname, file_path):
         saved[0], saved[1] = nd_s0, timestamps[nd_s0]
 
         np.save(file_path+fname+'_nd_S0', saved)   
-        print ('Noise Diode file conjured')
+        print ('Noise Diode file conjured')                                
     
     print ('Done')
