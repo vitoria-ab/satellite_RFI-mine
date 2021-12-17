@@ -22,7 +22,7 @@ In order to run all 3 stages you need access to the ILIFU cluster.
 srun --pty bash
 ```
 ```
-singularity shell /idia/software/containers/hi_im-python3.simg
+singularity shell /idia/software/containers/hi_im-py3.simg
 ```
 ```
 pip install skyfield --user
