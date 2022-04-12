@@ -43,7 +43,7 @@ def get_sat_tles(sattype='geo', reload=False, source_url=None):
 
     if source_url is None:
         source_url = 'https://www.celestrak.com/NORAD/elements/'
-    print 'load sat catalogue from %s %s.txt'%(source_url, sattype)
+    print ('load sat catalogue from %s %s.txt'%(source_url, sattype))
     #gps_tles = ['gps-ops.txt', 'glo-ops.txt', 'beidou.txt', 'galileo.txt', 'sbas.txt', ]
     #comms_tles = ['iridium.txt', 'iridium-NEXT.txt', 'geo.txt']
     #if geostationary:
@@ -255,7 +255,7 @@ class Satellite_Catalogue(object):
             name_list  = []
             distance_list = []   # Edit
             delete_list = []
-            print "Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc)
+            print ("Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc))
             for ii, sat_type in enumerate(self.sats_type):
                 t0 = time.time()
                 sats = copy.copy(self.sats[ii])
@@ -263,11 +263,11 @@ class Satellite_Catalogue(object):
                 # Edit - removes satellites thats are below the horizon
                 sats, tlist_ = remove_sats_below_horizen(sats, obs_time_list[0], 
                                                  obs_time_list[-1], self.obs_location)
-                print "Satellite %12s has %4d satellites"%(sat_type, 
-                                                         len(sats.keys())),
+                print ("Satellite %12s has %4d satellites"%(sat_type, 
+                                                         len(sats.keys()))),
                 if len(tlist_)==0:
                     delete_list.append(ii)
-                    print '[Removing this constellation from sats_type]'
+                    print ('[Removing this constellation from sats_type]')
                 
                 else:
                     coord_list_sats, name_list_sats, distance_list_sats, coords_rd_list_sats = get_sat_coods(sats, obs_time_list, self.obs_location)   # Edit
@@ -296,7 +296,7 @@ class Satellite_Catalogue(object):
                     coord_list.append(coord_list_sats_ma)
                     name_list.append(name_list_sats)
                     distance_list.append(distance_list_sats)   # Edit
-                    print " [use %6.2f s]"%(time.time() - t0)
+                    print (" [use %6.2f s]"%(time.time() - t0))
 
                 coord_list_total.append(coord_list)
                 name_list_total.append(name_list)
@@ -457,8 +457,12 @@ class Satellite_Catalogue(object):
             
             
             
-    def check_angular_separation(self, pointings, max_angle=10, beam_func=None,
+    def check_angular_separation(self, pointings, max_angle=None, min_angle=None, beam_func=None,
             ymin=None, ymax=None, axes=None):
+        '''
+        max_angle - The maximum angular seperation of a satellite to the telescope pointings. Angles larger will be masked.
+        min_angle - The minimum angular seperation of a satellite to the telescope pointings. Angles smaller will be saved.
+        '''
         
         
         self.get_angular_separation(pointings, beam_func=beam_func)
@@ -481,11 +485,13 @@ class Satellite_Catalogue(object):
             for ii in range(len(self.sats_type_remain)):
 
                 _angle = self.angle_separation_list[oo][ii]
-                _angle = np.ma.masked_greater(_angle, max_angle)
+                    
+                if max_angle!=None:
+                    _angle = np.ma.masked_greater_equal(_angle, max_angle)
                 #Edit - saving the angle which the satellites make with the pointing
                 satellite_angle.append(_angle)
-                if beam_func is not None:
-                    _angle = beam_func(_angle)
+#                 if beam_func is not None:
+#                     _angle = beam_func(_angle)
 
 #                 ax.plot(x_axis, _angle, '.-', color=_c_list[ii], ms=1, lw=0.1)
 #                 ax.plot(x_axis, _angle, '-', color=_c_list[ii], lw=0.1)

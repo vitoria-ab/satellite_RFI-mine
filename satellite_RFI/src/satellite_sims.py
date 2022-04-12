@@ -45,11 +45,12 @@ class satellite_sim:
     Requirements:
         file_name - file name 
         sats_only - Include or exclude observational data set to !=None
-        data_loc - Location of the re-calibration data and angualr seperation maps of the satellite
+        data_loc - Location of the re-calibration data and angular seperation maps of the satellite
         sat_loc - Location of the satelite TOD
         sat_beam - The beam choice applied for the data eg: [emss_beam]
         bias_choice_loc - Location of the bias choice parameters for the satellites
         constellations - list of constellations which user wants: GPS, GLO, GAL, BDS, QZS, IRNSS, SBAS. If constellations==None then will use all sat_types in satellite_list
+        verbose - user can opt for print statements, default=Falese
     """
     def __init__(self, 
                  file_name=None, 
@@ -61,7 +62,9 @@ class satellite_sim:
                  plots_loc=None,
                  sat_beam=None,
                  frequency_range=None,
+                 verbose=False,
                  constellations=None,
+                 nearby_satellites=None,
                  bias_choice_loc=''):
         
         self.file_name=file_name
@@ -76,6 +79,8 @@ class satellite_sim:
         self.frequency_choice=frequency_range
         self.bias_choice_loc=bias_choice_loc
         self.cons=constellations
+        self.nearby_satellites_path=nearby_satellites
+
                 
         
         #------------------------------------------------------
@@ -92,13 +97,30 @@ class satellite_sim:
         # Satellite positioning
         self.satellite_type, self.satellite_angle = self.get_satellite_angle_seperation()
         self.satellite_type, self.satellite_angle = specific_cons(constellation=self.cons, satellite_list=self.satellite_type, angle_list=self.satellite_angle)
-        print ('Number of constellations: ',len(self.satellite_type))
+        if verbose==True:
+            print ('Number of constellations: ',len(self.satellite_type))
         #------------------------------------------------------
         
         # Subsetting the data with the constellations of choice
         self.sat_data=self.sat_data[self.sat_data['Sys'].str.contains('|'.join(self.cons))]
         self.alpha_len=len(self.sat_data)
-        print ('Length of the satellite catalogue: ',self.alpha_len)
+        if verbose==True:
+            print ('Number of signals in satellite catalog: ',self.alpha_len)
+        #-------------------------------------------------------
+        
+        # Subsetting the data in line with the frequency range chosen
+        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] > self.frequency_choice[1]].index), inplace=True)
+        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] < self.frequency_choice[0]].index), inplace=True)
+        self.alpha_len=len(self.sat_data)
+        if verbose==True:
+            print ('Number of signals inside choice frequency range: ', self.alpha_len)
+        #-------------------------------------------------------
+        
+        # Getting path to nearby satellites pickle file 
+        if self.nearby_satellites_path!=None:
+             self.nearby_sats_time = pickle.load(open(self.nearby_satellites_path, 'rb'), encoding='latin1')
+        else:
+            self.nearby_sats_time = None
         #-------------------------------------------------------
 
         
@@ -106,7 +128,7 @@ class satellite_sim:
 
     def excecute(self, a_param, obs_time_start=None, obs_time_end=None, 
                  obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None,
-                 file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None]):
+                 file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None], bandsize=None):
         '''
         A function which excutes all the function currently available to us. 
         A means to avoid initializing them.
@@ -120,6 +142,7 @@ class satellite_sim:
         add_sub - a list. First None: add the BG model to the satellite data if !=None
                           Second None: subtracts the BG model from observation data if ==None
         band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
+        bandsize - the bandwidth for the mask. How wide should the width beam from the central frequency +/- bandsize
         '''
         
         
@@ -129,7 +152,6 @@ class satellite_sim:
 
         # Testing single paramter change -----------------------------------
         self.sat_data.loc[:, 'Alpha']=a_param
-#         print (self.sat_data.head(14))
         # ----------------------------------
     
         # Sets the frequency band
@@ -143,14 +165,19 @@ class satellite_sim:
         
         # BG Noise: subtract the observational data; add to the simulations
         self.add_BG,  self.sub_BG = add_sub
-       
+               
         
         # Slice idx in the frequency and the time
         self.time_idx, self.frequency_idx = self.get_slice_idx(start_time=obs_time_start, 
                                                                     end_time=obs_time_end, 
                                                                     start_frequency=obs_frequency_start, 
                                                                     end_frequency=obs_frequency_end)
-
+        
+        # Create nearby satellite mask arrays
+        if self.nearby_sats_time!=None:
+            self.mask_nearby_satellites = self.get_mask_nearby_satellites(bandsize)
+            self.mask_nearby_satellites_slice = self.mask_nearby_satellites[self.time_idx[0]:self.time_idx[1]\
+                                                                            , self.frequency_idx[0]:self.frequency_idx[1]]
 
         if self.sats_only==None:
             # Observational data
@@ -226,12 +253,23 @@ class satellite_sim:
         !!! Should add some extra stuff here regarding the printing of the freqeuncy bands.
         For not fixed
         '''
-        f_start_idx = (np.where(self.frequency > self.frequency_choice[0])[0][0])
-        f_end_idx = (np.where(self.frequency > self.frequency_choice[1])[0][0])
-#         f_start_idx = 600
-#         f_end_idx = 2482
-        f_band = self.frequency[f_start_idx-1:f_end_idx+1]
+        if self.frequency_choice[0]==None and self.frequency_choice[1]==None:
+            f_start_idx = 0
+            f_end_idx = -1
         
+        elif self.frequency_choice[0]!=None and self.frequency_choice[1]==None:
+            f_start_idx = (np.where(self.frequency > self.frequency_choice[0])[0][0])-1
+            f_end_idx = -1
+        
+        elif self.frequency_choice[0]==None and self.frequency_choice[1]!=None:
+            f_start_idx = 0
+            f_end_idx = (np.where(self.frequency > self.frequency_choice[1])[0][0])+1
+        
+        else:
+            f_start_idx = (np.where(self.frequency > self.frequency_choice[0])[0][0])-1
+            f_end_idx = (np.where(self.frequency > self.frequency_choice[1])[0][0])+1
+
+        f_band = self.frequency[f_start_idx:f_end_idx]
         return f_band
         
                
@@ -270,6 +308,7 @@ class satellite_sim:
             fname = self.file_name
             beam_choice = self.sat_beam
             data = pickle.load(open(self.sat_loc+str(fname)+'_satellite_angular_position_'+beam_choice+".p", "rb"), encoding='latin1')
+#             data = pickle.load(open('../../../Observation_results/Untangle/1551055211/1551055211_satellite_angular_position_emss_beam_r_gal_1.p', "rb"), encoding='latin1')
             
             Satellite_type = data["sat_name"]     # Contains the names of the constellations
             Satellite_angle = data["angular"]     # Contains the angular seperation maps
@@ -305,6 +344,47 @@ class satellite_sim:
     
     
     
+    def get_mask_nearby_satellites(self, bandsize=None):
+        '''Creates a mask array of values for when satellites are nearby'''
+        combined_con_list = '\t'.join(self.nearby_sats_time.keys())
+        masks = []
+        for con_b in self.cons:
+            if con_b=='BDS':
+                con_b='beidou'
+            if con_b.lower() in combined_con_list:
+                frequency_vals = np.unique(self.sat_data[self.sat_data['Sys'].str.contains(con_b)]['Frequency[MHz]'].values)  # this line sorted
+                idx = [idx for idx,con_i in enumerate(self.nearby_sats_time.keys()) if con_b.lower() in con_i][0]
+                constellation_nearby = list(self.nearby_sats_time.keys())[idx]
+
+
+                # Frequency
+                freq_step = self.frequency_band[1]-self.frequency_band[0]
+                # Maksed array being made
+                masked_array = np.zeros(self.frequency_band.shape) * np.zeros(self.nd_s0.shape)[:, np.newaxis]
+
+                if bandsize==None:
+                    masked_array[self.nearby_sats_time[constellation_nearby], :]=1
+                    masks.append(masked_array)
+                
+                else:
+                    idx_range = int(np.round(bandsize/freq_step, 0))
+
+                    frequency_idx = [np.where(fval > self.frequency_band)[0][-1]+1 for fval in frequency_vals]    # getting the idx of the frequency values for 1 constellation
+                    frequency_range_idx = np.unique(np.concatenate([np.arange(-idx_range+fval, idx_range+fval) for fval in frequency_idx]))
+
+                    for fi in frequency_range_idx:
+                        masked_array[self.nearby_sats_time[constellation_nearby], fi]=1
+
+                    masks.append(masked_array)
+
+        mask = np.array(masks)
+        total_mask= 0
+        for mask_i in mask:
+            total_mask+=mask_i
+
+        return total_mask
+    
+    
     #-------------------------------------------S4-----------------------------------------------------------------
     #                                         SECTION 4
     #-------------------------------------------S4-----------------------------------------------------------------
@@ -322,20 +402,26 @@ class satellite_sim:
         if start_time==None and end_time==None:
             st_pos, et_pos = 0,-1
         else:
-            st_pos = (np.where(self.nd_s0 > start_time)[0][0])
-            et_pos = (np.where(self.nd_s0 > end_time)[0][0])
+            st_pos = (np.where(self.nd_s0 >= start_time)[0][0])
+            et_pos = (np.where(self.nd_s0 >= end_time)[0][0])   #Might be an issue to check here ????
 #             print 'Time between: '+str(self.nd_s0[st_pos])+' and '+str(self.nd_s0[et_pos])+' in seconds\n'
             
             
         # Slicing in the frequency domain:
         if start_frequency==None and end_frequency==None:
             sf_pos, ef_pos = 0,-1
+        elif start_frequency!=None and end_frequency==None:
+            sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])-1
+            ef_pos = -1
+        elif start_frequency==None and end_frequency!=None:
+            sf_pos = 0
+            ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])+1
         else:
-            sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])
-            ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])
+            sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])-1
+            ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])+1
 #             print 'Frequency between: '+str(self.frequency_band[sf_pos-1])+' and '+str(self.frequency_band[ef_pos+1])+' in MHz\n'
             
-        return (st_pos, et_pos), (sf_pos-1, ef_pos+1)
+        return (st_pos, et_pos), (sf_pos, ef_pos)
     
     
     def get_data_slice(self):
@@ -398,15 +484,17 @@ class satellite_sim:
         gnss_bias_model = np.nansum([satellite_TOD_slice[i]*bias_choice[i] for i in range(len(satellite_TOD_slice))], 0) #+ bias_choice[-1] Don't require this amplitude
         
         
-        #Threshold ---------------------------------------
-        threshold_k = 400   # K   : Since there is evidence that MeerKAT has a limit function
-#         gnss_bias_model_m = np.ma.masked_where(gnss_bias_model >=threshold_k, gnss_bias_model)     # Old method of masking the values, 
-                                                                                                     # NOTE have to change the the variable name to have 'xxx_m'
-        gnss_bias_model[gnss_bias_model >= threshold_k] = threshold_k                              # Adding a new threshold method 
-#         satellite_TOD_slice[satellite_TOD_slice >= threshold_k] = threshold_k                        # Setting the threshold before bias choice
+#         #Threshold ---------------------------------------
+#         threshold_k = 400   # K   : Since there is evidence that MeerKAT has a limit function
+# #         gnss_bias_model_m = np.ma.masked_where(gnss_bias_model >=threshold_k, gnss_bias_model)     # Old method of masking the values, 
+#                                                                                                      # NOTE have to change the the variable name to have 'xxx_m'
+#         gnss_bias_model[gnss_bias_model >= threshold_k] = threshold_k                              # Adding a new threshold method 
+# #         satellite_TOD_slice[satellite_TOD_slice >= threshold_k] = threshold_k                        # Setting the threshold before bias choice
         # ----------------------------------------------
         
         if self.add_BG==None:
+            gnss_bias_model_m = gnss_bias_model 
+        elif self.sats_only!=None:
             gnss_bias_model_m = gnss_bias_model 
         else:
             gnss_bias_model_m = gnss_bias_model + self.calibration_noise_slice
