@@ -36,6 +36,9 @@ work_folder='parallel_2022_03_20'
 # Path to save chi_2 best-fit values
 chi2_save_data='/idia/projects/hi_im/satellite_rfi/Results/Data/'+file_name+file_name_ext+'/data_info/'+work_folder+'/'
 
+# Path to chi_2 save data
+chi2_save_data_path='/idia/projects/hi_im/satellite_rfi/Results/Data/'+file_name+file_name_ext+'/data_info/'
+
 # Satellite catalogue path 
 satellite_catalogue='../../Satellite_simulations/Satellite_Catalogue/table3B_satellite_v3-1_reduced_2.csv'
 
