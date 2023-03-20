@@ -108,6 +108,14 @@ class satellite_sim:
             print ('Number of signals in satellite catalog: ',self.alpha_len)
         #-------------------------------------------------------
         
+        # # Subsetting the data in line with the frequency range chosen
+        # self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] > self.frequency_choice[1]].index), inplace=True)
+        # self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] < self.frequency_choice[0]].index), inplace=True)
+        # self.alpha_len=len(self.sat_data)
+        # if verbose==True:
+        #     print ('Number of signals inside choice frequency range: ', self.alpha_len)
+        # #-------------------------------------------------------
+        
         # Getting path to nearby satellites pickle file 
         if self.nearby_satellites_path!=None:
              self.nearby_sats_time = pickle.load(open(self.nearby_satellites_path, 'rb'), encoding='latin1')
@@ -120,7 +128,7 @@ class satellite_sim:
 
     def excecute(self, a_param, obs_time_start=None, obs_time_end=None, 
                  obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None,
-                 file_bias_choice=None, add_sub=[None, None], attenuation_func=None, attenuation_sigma=None, bandsize=None, verbose=False):
+                 file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None], bandsize=None, verbose=False):
         '''
         A function which excutes all the function currently available to us. 
         A means to avoid initializing them.
@@ -133,8 +141,7 @@ class satellite_sim:
         frequency_idx - The minimum and maximum idx for the frequency band (user defined)
         add_sub - a list. First None: add the BG model to the satellite data if !=None
                           Second None: subtracts the BG model from observation data if ==None
-        attenuation_func - The function for attenuation: [None, 'goob', 'tophat']
-        attenuation_sigma - The values for each sigma value associated to each signal. None if att_f=None
+        band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
         bandsize - the bandwidth for the mask. How wide should the width beam from the central frequency +/- bandsize
         '''
         
@@ -145,7 +152,6 @@ class satellite_sim:
         # Subsetting the data in line with the frequency range chosen
         self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] > obs_frequency_end].index), inplace=True)
         self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] < obs_frequency_start].index), inplace=True)
-        self.sat_data_adjusted = self.sat_data
         self.alpha_len=len(self.sat_data)
         
         if verbose==True:
@@ -154,14 +160,13 @@ class satellite_sim:
 
         # Testing single paramter change -----------------------------------
         self.sat_data.loc[:, 'Alpha']=a_param
-        self.sat_data.loc[:, 'Sigma']=attenuation_sigma
         # ----------------------------------
     
         # Sets the frequency band
         self.frequency_band = self.get_frequency_information() 
         
         # Bandwith and level of difference for attenuation
-        self.attenuation = [attenuation_func, attenuation_sigma]
+        self.band_lvl = band_lvl
                 
         # Satellite TOD
         self.satellite_TOD, self.satellite_SED = self.get_gnss_simulation()
@@ -283,7 +288,7 @@ class satellite_sim:
         '''
         
         try:
-            fname = str(self.file_name)
+            fname = self.file_name
             data = pickle.load(open(self.data_loc+fname+'_average_TOD_BG_model.p', 'rb'),encoding='latin1')
             
             Temp_tod = data['TOD Avg'].T
@@ -333,14 +338,14 @@ class satellite_sim:
         satellite_TOD = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], attenuation=self.attenuation, 
+                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
                                      sat_cat_data=self.sat_data)[0] for i, satellite_name in enumerate(self.satellite_type)])
 
         
         satellite_SED = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], attenuation=self.attenuation, 
+                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
                                      sat_cat_data=self.sat_data)[1] for i, satellite_name in enumerate(self.satellite_type)])
         
         return satellite_TOD, satellite_SED
@@ -348,13 +353,7 @@ class satellite_sim:
     
     
     def get_mask_nearby_satellites(self, bandsize=None):
-        '''
-        Creates a mask array of values for when satellites are nearby
-        Etheir creates a mask bsed on timestamps through all frequencies (bandsize==None)
-        or
-        Creates a boxed masks based on timestamps and size of mask in frequency (bandsize!=None)
-        '''
-        
+        '''Creates a mask array of values for when satellites are nearby'''
         combined_con_list = '\t'.join(self.nearby_sats_time.keys())
         masks = []
         for con_b in self.cons:
@@ -412,15 +411,10 @@ class satellite_sim:
         # Slicing in the time domain:
         if start_time==None and end_time==None:
             st_pos, et_pos = 0,-1
-        elif start_time!=None and end_time==None:
-            st_pos = (np.where(self.nd_s0 > end_time)[0][0])
-            et_pos = -1
-        elif start_time==None and end_time!=None:
-            st_pos = 0
-            et_pos = (np.where(self.nd_s0 > end_time)[0][0])+1
         else:
             st_pos = (np.where(self.nd_s0 >= start_time)[0][0])
-            et_pos = (np.where(self.nd_s0 >= end_time)[0][0])+1  
+            et_pos = (np.where(self.nd_s0 >= end_time)[0][0])+1   #Might be an issue to check here ????  FIXED it
+#             print 'Time between: '+str(self.nd_s0[st_pos])+' and '+str(self.nd_s0[et_pos])+' in seconds\n'
             
             
         # Slicing in the frequency domain:
@@ -435,6 +429,7 @@ class satellite_sim:
         else:
             sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])-1
             ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])+1
+#             print 'Frequency between: '+str(self.frequency_band[sf_pos-1])+' and '+str(self.frequency_band[ef_pos+1])+' in MHz\n'
             
         return (st_pos, et_pos), (sf_pos, ef_pos)
     

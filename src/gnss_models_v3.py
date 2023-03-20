@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import astropy.constants as cc
-import psd_models_v2 as psd
+from satellite_RFI.src import psd_models_v2 as psd
 from fractions import Fraction
-import attenuation_function as af
+from satellite_RFI.src import attenuation_function as af
 #-------------------------------------------------------------_#
 
 def floaty(x):
@@ -13,76 +13,76 @@ def floaty(x):
     '''
     try:
         a = float(x)
-    except ValueError:
+    except (ValueError):
         a = float(Fraction(x))
 
     return a
 
+def signal_cosntant(x):
+    '''
+    A function to return the alpha values
+    '''
+    return np.ones(len(x))
+
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_loc=None):
+def gnss_satellites(name_gnss, frequency_gnss, attenuation, sat_cat_data):
+
     '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
     name_gnss - Satellite name
-    frequency_gnss - Frequency list of satellites
+    frequency_gnss - Frequency list of satellites [MHz]
     excel_sat_info - The satellite excel cataloguen name in the s3 Notebook folder
-    band_lvl- the bandwidth and level of the drop
+    attenuation- the bandwidth and level of the drop
     
     '''
     # Distances to the satellite constellations, taken from Springer Handbook pg 1234 
 
     if name_gnss=='gps-ops':
         name = 'GPS'
-#         r = 20180 * 1000 # Distance in metres
 
     elif name_gnss=='glo-ops':
         name = 'GLO'
-#         r = 19130 * 1000 # Distance in meters
 
     elif name_gnss=='galileo':
         name = 'GAL'
-#         r = 23220 * 1000 # Distance in metres
 
     elif name_gnss=='beidou':
         name = 'BDS'
-#         r = 21530 * 1000 # Distance in meters
 
     elif name_gnss=='irnss':
         name = 'IRNSS'
-#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='qzs':
         name = 'QZS'
-#         r = 35790 * 1000  # Distance in meters
 
     elif name_gnss=='sbas':
         name = 'SBAS'
-#         r = 35790 * 1000  # Distance in meters
 
     else:
-        print ('Oops, make the sure name is written as GPS or Galileo or GLONASS')
+        print ('Oop, issue with the name')
         return -1
 
-    if excel_loc==None:
-        data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-    else:
-        data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-
+#     if excel_loc==None:
+#         data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
+#     else:
+#         data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
 
     # Re-ordering by frequency
 #         data = data.sort_values(by = 'Frequency[MHz]')
 #-----# Looking at all frequency below 1500 MHz
 
-    data = data[data['Frequency[MHz]']< 1700]
+#     data = data[data['Frequency[MHz]']< 1700]    # Line could come out
 #------# Changing the rate values
 #         data.loc[data['Rate(MHz)'] != 1.023, 'Rate(MHz)'] = 1.023
 
 
 
-    # Extracting smaller data table
-    data_sub = data[data[data.columns[0]].str.contains(name)]
-
+    # Extracting smaller data table for each name
+    data_sub = sat_cat_data[sat_cat_data['Sys'].str.contains(name)]
+ 
     # Making the Spectral Energy density list
     sed = []
+    flux_density = []
 
     # Looping through all the sub-data index
     for i in data_sub.index:
@@ -90,7 +90,8 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
         if data_sub['P_t (dBW)'][i]==0 or data_sub['G_t (dBi)'][i]==0:
             power = 0
         else:
-            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) / (4*np.pi)# Edit *r**2) 
+            power = 10**(data_sub['P_t (dBW)'][i]/10) * 10**(data_sub['G_t (dBi)'][i]/10) * data_sub['Alpha'][i] / (4*np.pi)# Edit *r**2) 
+        
 
         if 'BPSK(' in data_sub['Modulation'][i]:
             s = data_sub['Modulation'][i]
@@ -109,7 +110,7 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
             # Bad method of by-passing TMBOC values
 
 
-            except ValueError, UnboundLocalError:
+            except (ValueError, UnboundLocalError):
                 pass
 
 
@@ -146,39 +147,41 @@ def gnss_satellites(name_gnss, frequency_gnss, excel_sat_info, band_lvl, excel_l
                              n_s=T_s, f0=data_sub['Rate(MHz)'][i] / T_c, ratio=rt)
 
 
-
-        
         model = np.array([0 if np.isnan(x) else x for x in model])
                
-        
-        if band_lvl[0]==None or band_lvl[1]==None:
+        # Attenuation section
+        if attenuation[0]==None:
             model2 = model
-        else:
             
-    #         Adding top-hat functions
-            # model2 = af.tophat_rect(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
-            #                band=band_lvl[0], level=band_lvl[1], values=model)
+        elif attenuation[0]=='tophat':
+        # Adding Top-Hat
+            model2 = model * af.tophat_rect(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
+                                            band=attenuation[0], level=attenuation[1][i], values=np.ones(len(model)))
+            
+        elif attenuation[0]=='goob':
+        # Adding Gaussian Out-of-Band
+            model2 = model * af.gaussian_oob(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
+                                             band=data_sub['Bandwidth'][i], sigma=data_sub['Sigma'][i], values=np.ones(len(model)))
+        else:
+            break
+ 
 
-    #       Adding gaussian oob
-            model2 = af.gaussian_oob(f=frequency_gnss, fi=data_sub['Frequency[MHz]'][i], 
-                           band=band_lvl[0], sigma=band_lvl[1], values=model)
-
-
-        sed.append(power * model2 * 1e26 / 1e6)  # In Jansky
+        ##  Converting the SED into SI units of Jansky
+        # sed.append(power * model2 * 1e26 / 1e6)
+        sed.append(power * model2)
+        flux_density.append(power)
 
     sed = np.array(sed)
-
-
-    # Returning the SED values and the data of the input for the user
-    return sed
-
- 
+    # return sed
     
-    
+    flux_density = np.array(flux_density)
+    return sed, flux_density
+
     
 ## Function that returns the TOD values
 
-def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, excel_cat_loc):
+def TOD_sats(name_tod, fname, frequency_tod, beam_model, attenuation, sat_cat_data):
+
     '''
     Returns the sat_temp in units of mK
     name - a str;
@@ -188,21 +191,38 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model, band_lvl, excel_sat, ex
     excel_cat_loc - the location of the mask, if !None, you set the location, else location is the same
     '''
     
-    sats_model = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, band_lvl=band_lvl, excel_sat_info=excel_sat, excel_loc=excel_cat_loc)   # Calling another fucntion
-    sats_model_t = np.sum(sats_model, axis=0)       # Adding all the satellites togther
+    # Calling the GNSS function above in order to obtain the PSD's for the constellation with the power from the satellites
+    sats_model, flux_density = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, attenuation=attenuation, sat_cat_data=sat_cat_data)   
     
-    # Multiplied with the gains
-    sats_model_tc = sats_model_t * cc.c.value**2 / cc.k_B.value / 4 / np.pi / (frequency_tod*1e6)**2 / 1e26  # Multiplying the constants, look at the page to see the units
+    # Comninging all the satellites that belong to a specific constellation together
+    sats_model_t = np.sum(sats_model, axis=0)  
     
-    sats_model_tc = sats_model_tc * 1e4  # The gain being multiplied as well, see Harper
+    # Channel width
+    # delta_nu = 0.2*1e6   # Hz
+    delta_nu = 1*1e6   # Hz
+    # Multiplying the SED with the conversion constants, include converting out of Jansky
+    sats_model_tc = sats_model_t * cc.c.value**2 / cc.k_B.value / 4 / np.pi / (frequency_tod*1e6)**2 / delta_nu  
     
-    # Cheking if the beam model is 1d or 2d
+    # sats_model_tc = sats_model_t * cc.c.value**2 / cc.k_B.value / 4 / np.pi / (frequency_tod*1e6)**2 / 1e26  # Multiplying the constants, look at the page to see the units
+
+    
+    # A gain factor is multplied to the SED, see Harpar paper. NOTE!!! this is of concern because unsure of where it came from
+    sats_model_tc = sats_model_tc * 1e4  
+    
+    # Multplying the SED by the beam model.
+    # Checking to see if the beam model is 1D or 2D
     if beam_model.ndim == 1:
-        temp_sats = sats_model_tc[:, None] * beam_model[None, :]     # Multiplying the beam and the satellite data
+        temp_sats = sats_model_tc[:, None] * beam_model[None, :]     
     
     elif beam_model.ndim == 2:
-        temp_sats = beam_model * sats_model_tc[:, None]     # Multiplying the beam and the satellite data
+        temp_sats = beam_model * sats_model_tc[:, None]     
 
-    temp_sats = temp_sats  ## Units in Kelvin                
-                              
-    return temp_sats, sats_model_tc, sats_model_t, frequency_tod    # Kelvin
+    # Satellite temperature brightness in units of Kelvin
+    temp_sats = temp_sats
+    
+    # Returns 
+    # Temperarture brightness of satellites;
+    # The SED of the model multplied by a unit factor and conversion factors
+    # The SED of the signal
+    # Frequecny timestamps of the observation
+    return temp_sats, sats_model_tc, sats_model_t, frequency_tod   

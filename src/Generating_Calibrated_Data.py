@@ -41,11 +41,11 @@ if path.exists(fname+'_katdal_info.p'):
     print 'Files already exists, data is pulled'
     katdal_info = pickle.load(open(fname+'_katdal_info.p', 'rb'))
 
-    nd_s, nd_s0, freqs, nd_s0_pos, timestamps, nd_s0_coords = [katdal_info[i]
+    nd_s, nd_s0, freqs, nd_s0_pos, timestamps, nd_s0_coords, nd_s0_coords2 = [katdal_info[i]
                                                                for i in katdal_info.keys()]
 
 else:
-    nd_s0, nd_s0_pos, nd_s, nd_s0_coords = dat1.get_nd_times()
+    nd_s0, nd_s0_pos, nd_s, nd_s0_coords, nd_s0_coords2 = dat1.get_nd_times()     # nd_s0_coords is Az and El and nd_s0_coords2 contains the RA and DEC
 
     freqs, timestamps = dat1.freqs, dat1.timestamps
 
@@ -54,6 +54,7 @@ else:
                    "nd_s0_pos":nd_s0_pos,
                    "nd_s":nd_s,
                    "nd_s0_coords":nd_s0_coords,
+                   "nd_s0_coords2":nd_s0_coords2,
                    "frequency":freqs,
                    "time":timestamps 
     }
