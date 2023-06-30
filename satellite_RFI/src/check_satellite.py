@@ -24,7 +24,7 @@ import time
 _c_list = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
           "#8c564b", "#e377c2", "#17becf", "#bcbd22", "#7f7f7f"]
 
-_gps_tles = [ 'gps-ops', 'glo-ops']#, 'beidou', 'galileo', 'sbas', ] #'active', 
+_gps_tles = [ 'gps-ops', 'glo-ops', 'beidou', 'galileo', 'sbas', ] #'active', 
 _comms_tles = []#['geo',    'iridium', 'iridium-NEXT',]
 
 
@@ -310,7 +310,7 @@ class Satellite_Catalogue(object):
         
         """
         This section is for the satellite coords to change their shape for the check angular
-        section of the code. Will comment tomorrow
+        section of the code. Will comment tomorrow  LOL!!!!!
         """
         coord_sats_total = []
 
@@ -464,7 +464,7 @@ class Satellite_Catalogue(object):
         min_angle - The minimum angular seperation of a satellite to the telescope pointings. Angles smaller will be saved.
         '''
         
-        
+        self.az_alt_pointings = pointings
         self.get_angular_separation(pointings, beam_func=beam_func)
         for oo, obs_start_time in enumerate(self.obs_time):
 #             if axes is None:
@@ -537,6 +537,8 @@ class Satellite_Catalogue(object):
                     theta_offset=0.5 * np.pi, theta_direction=-1)
             
             legend_list = []
+           
+                
             for ii in range(len(self.sats_type_remain)):
 
                 
@@ -544,17 +546,27 @@ class Satellite_Catalogue(object):
                 coords = np.array(coords)
 
                 #names  = name_list[ii]
+                ax.plot(self.az_alt_pointings[:, 0]*np.pi/180, 90-self.az_alt_pointings[:, 1], alpha=1, color='#808080', label='Coverage')
 
                 for jj in range(coords.shape[1]):
                     good = coords[:, jj,1] > 0
                     ax.plot(coords[good,jj,0], 90.- coords[good,jj,1] * 180./np.pi,
                             '.-', color=_c_list[ii], mfc=_c_list[ii], mec='none',
                             lw=0.1, ms=2)
-                #ax.scatter(coords[:,0], 90.- coords[:,1] * 180./np.pi, s=10,
-                #      marker='s', facecolor='none', edgecolor=_c_list[ii])
+                    
+#                     ax.scatter(coords[:,0], 90.- coords[:,1] * 180./np.pi, s=40,
+#                          marker='s', facecolor='none',  alpha=1, label='Coverage')
+    
+                # ax.scatter(self.az_alt_pointings[:, 0]*np.pi/180, 90-self.az_alt_pointings[:, 1], s=10,
+                #  marker='s', facecolor='none',  alpha=0.4, label='Coverage')
 
+               
+                
                 legend_list.append(mpatches.Patch(color=_c_list[ii], 
-                                                  label='%s'%self.sats_type[ii]))
+                                                  label='%s'%self.sats_type_remain[ii]))
+                
+            legend_list.append(mpatches.Patch(color='#808080', 
+                                                  label='Coverage'))
 
             ax.set_rlim(0, 90)
             ax.set_title(self.obs_time[oo])

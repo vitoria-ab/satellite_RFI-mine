@@ -1,8 +1,5 @@
 #!/bin/bash
 
-
-
-
 echo "Running opitmizaton look"
 ## Looping through the mask being on and off
 ## If mask==0

@@ -4,7 +4,8 @@ import sys
 # -------------------------------------------LIST OF IMPORTS
 from imports import *
 # -------------------------------------------LIST OF PARAMETERS
-import param as pm
+# import param as pm
+import paramCopy1 as pm
 # -------------------------------------------OBSERVATION NAME + DATE 
 fname, dtime=tools.timepoint(fname=pm.file, date=None)
 
@@ -33,12 +34,14 @@ else:
     print ('Error, time value choices are incorrect')
 
 ## -------------------------------------------------------------MASK
-if pm.mask_type==False:
+if pm.mask_type==None:
     print ('No mask.')
 elif pm.mask_type=='degree':
     print ('Degree masking of '+str(pm.mask_degree)+' degrees.')
 elif pm.mask_type=='thermal':
     print ('Thermal masking of '+str(pm.mask_temperature)+' kelvin.')
+elif pm.mask_type=='temporal':
+    print ('Temporal masking')
 else:
     print ('Unknown mask given')
 ## -----------------------------------------------------TIME AVERAGE
@@ -114,7 +117,7 @@ print ('File location is: '+file_save)
 ##-------------------------------------------------------------------------------------------------------------##
 ##---------------------------------------------------INITIALIZING THE FUNCTION
 sat = ss(file_name=fname,          
-             sats_only=None, 
+             sats_only=False, 
              data_loc=pm.data_save, 
              sat_loc=pm.data_save,
              survey_info=[pm.nd_s0, pm.nd_s0_coords, pm.frequency], 
@@ -127,9 +130,9 @@ sat = ss(file_name=fname,
              verbose=False)
 
 ##---------------------------------------------------INTIAL ALPHA DICTIONARY VALUES
-# Note- There can be a length issue, the length should be the same as number of signals available
-alpha_dic = np.ones(pm.no_signals)
-print ('Using alpha #: '+str(alpha_dic))
+# Note- There can be a length issue, the length should be the same as number of signals available, change the alphas to zero and not 1
+alpha_dic = np.zeros(pm.no_signals)
+
 ##---------------------------------------------------INTIAL SIGMA DICTIONARY VALUES
 if pm.dampner!=None:
     # Note- There can be a length issue here, be aware
@@ -152,7 +155,7 @@ sat.excecute(a_param=alpha_dic,                                                #
                  obs_time_start=pm.ts_slice, obs_time_end=pm.te_slice, 
                  obs_frequency_start=pm.fs_slice, obs_frequency_end=pm.fe_slice, 
                  file_bias_choice=pm.bias, 
-                 add_sub=[1, 1], 
+                 add_sub=[True, False], 
                  attenuation_func=pm.dampner,
                  attenuation_sigma=sigma_dic, 
                  bandsize=None,
@@ -185,7 +188,7 @@ def chisq_func2(params):
                  obs_time_start=pm.ts_slice, obs_time_end=pm.te_slice, 
                  obs_frequency_start=pm.fs_slice, obs_frequency_end=pm.fe_slice, 
                  file_bias_choice=pm.bias, 
-                 add_sub=[1, 1], 
+                 add_sub=[True, False], 
                  attenuation_func=pm.dampner,
                  attenuation_sigma=s_param, 
                  bandsize=None,
@@ -210,7 +213,13 @@ def chisq_func2(params):
         data = np.ma.array(data=sat.calibration_data_slice.T, mask=sat.mask_nearby_satellites_slice)
 
     # No masking
-    elif pm.mask_type==False:
+    elif pm.mask_type==None:
+        # print ('No mask applied')
+        simulation = np.ma.array(data=sat.simulation_TOD_slice.T, mask=None)
+        data = np.ma.array(data=sat.calibration_data_slice.T, mask=None)
+
+    # Temporal
+    elif pm.mask_type=='temporal':
         # print ('No mask applied')
         simulation = np.ma.array(data=sat.simulation_TOD_slice.T, mask=None)
         data = np.ma.array(data=sat.calibration_data_slice.T, mask=None)
@@ -229,10 +238,12 @@ def chisq_func2(params):
     # Denominator value
     if pm.chi_sigma==True:
         # print ('Running Chi-sigma=radiometer')
-        sig = tools.radiometer_eq(data=data)  # Note this is sigma (expected noise level), it must be squared to give the radiometer equation
-        ## An added experiment msking all values below Tsys NOTE!!! Make sure to take off
-        data = np.ma.array(data, mask=data<17)
-        simulation = np.ma.array(simulation, mask=data<17)
+        # sig = tools.radiometer_eq(data=data, n_dish=1)  # Note this is sigma (expected noise level), it must be squared to give the radiometer equation
+        sig = data  # Note this is sigma (expected noise level), it must be squared to give the radiometer equation
+
+        # ## An added experiment msking all values below Tsys NOTE!!! Make sure to take off
+        # data = np.ma.array(data, mask=data<17)
+        # simulation = np.ma.array(simulation, mask=data<17)
 
     elif pm.chi_sigma==False:
         # print ('Running Chi-sigma=1')
@@ -292,7 +303,7 @@ else:
 ##------------------------------------------------RUNNING SECOND INITIALIZATION
 print ('Running 2nd init')
 sat2 =  ss(file_name=fname,          
-             sats_only=None, 
+             sats_only=False, 
              data_loc=pm.data_save, 
              sat_loc=pm.data_save,
              survey_info=[pm.nd_s0, pm.nd_s0_coords, pm.frequency], 
@@ -308,7 +319,7 @@ sat2.excecute(a_param=a_param_bf,
                  obs_time_start=pm.ts_slice, obs_time_end=pm.te_slice, 
                  obs_frequency_start=pm.fs_slice, obs_frequency_end=pm.fe_slice, 
                  file_bias_choice=pm.bias, 
-                 add_sub=[1, 1], 
+                 add_sub=[True, False], 
                  attenuation_func=pm.dampner,
                  attenuation_sigma=sigma_param_bf, 
                  bandsize=None,

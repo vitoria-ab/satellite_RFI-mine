@@ -44,7 +44,7 @@ class satellite_sim:
     
     Requirements:
         file_name - file name 
-        sats_only - Include or exclude observational data set to !=None
+        sats_only - Include (False) or exclude (True) observational data
         data_loc - Location of the re-calibration data and angular seperation maps of the satellite
         sat_loc - Location of the satelite TOD
         sat_beam - The beam choice applied for the data eg: [emss_beam]
@@ -54,7 +54,7 @@ class satellite_sim:
     """
     def __init__(self, 
                  file_name=None, 
-                 sats_only=None,
+                 sats_only=False,
                  data_loc=None, 
                  sat_loc=None,
                  survey_info=None,
@@ -80,40 +80,32 @@ class satellite_sim:
         self.bias_choice_loc=bias_choice_loc
         self.cons=constellations
         self.nearby_satellites_path=nearby_satellites
+        self.verbose=verbose
 
                 
         
         #------------------------------------------------------
         
         '''
-        nd_s - noise diode scan in period
-        nd_s0 - noise diode off scan in period
-        frequency - frequency range or band
-        nd_s0_pos - index of noise diode off in scan perid
-        timestamps - time flow od the data
-        nd_s0_coords - azimuth and elevation of the data
+        file_name -> Name of observsation or file (unix time)
+        sats_only -> Default as False to look at the observational data, set to True if 
+        data_loc  -> 
+        sat_loc   ->
+        
         '''
         
         # Satellite positioning
         self.satellite_type, self.satellite_angle = self.get_satellite_angle_seperation()
         self.satellite_type, self.satellite_angle = specific_cons(constellation=self.cons, satellite_list=self.satellite_type, angle_list=self.satellite_angle)
-        if verbose==True:
+        if self.verbose==True:
             print ('Number of constellations: ',len(self.satellite_type))
         #------------------------------------------------------
         
         # Subsetting the data with the constellations of choice
         self.sat_data=self.sat_data[self.sat_data['Sys'].str.contains('|'.join(self.cons))]
         self.alpha_len=len(self.sat_data)
-        if verbose==True:
+        if self.verbose==True:
             print ('Number of signals in satellite catalog: ',self.alpha_len)
-        #-------------------------------------------------------
-        
-        # Subsetting the data in line with the frequency range chosen
-        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] > self.frequency_choice[1]].index), inplace=True)
-        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] < self.frequency_choice[0]].index), inplace=True)
-        self.alpha_len=len(self.sat_data)
-        if verbose==True:
-            print ('Number of signals inside choice frequency range: ', self.alpha_len)
         #-------------------------------------------------------
         
         # Getting path to nearby satellites pickle file 
@@ -128,7 +120,7 @@ class satellite_sim:
 
     def excecute(self, a_param, obs_time_start=None, obs_time_end=None, 
                  obs_frequency_start=None, obs_frequency_end=None, frequency_idx=None,
-                 file_bias_choice=None, add_sub=[None, None], band_lvl=[None, None], bandsize=None):
+                 file_bias_choice=None, add_sub=[True, False], attenuation_func=None, attenuation_sigma=None, bandsize=None, verbose=False):
         '''
         A function which excutes all the function currently available to us. 
         A means to avoid initializing them.
@@ -139,26 +131,39 @@ class satellite_sim:
                            2. is a list: the list should have the same number as constellations plus noise parameter
                            3. is None: user will then put amplitude choices for the constellation
         frequency_idx - The minimum and maximum idx for the frequency band (user defined)
-        add_sub - a list. First None: add the BG model to the satellite data if !=None
+        add_sub - 1st index: ADD - adds the background model to the simulation model IF TRUE
+                  2nd index: SUB - subtracts the background model from the observational data IF TRUE
+        First None: add the BG model to the satellite data if !=None
                           Second None: subtracts the BG model from observation data if ==None
-        band_lvl - the bandwidth of the signal and the level of attenuation, default=[None,None]
+        attenuation_func - The function for attenuation: [None, 'goob', 'tophat']
+        attenuation_sigma - The values for each sigma value associated to each signal. None if att_f=None
         bandsize - the bandwidth for the mask. How wide should the width beam from the central frequency +/- bandsize
         '''
         
         
                 
 #         self.sat_data['Alpha'] = self.sat_data['Alpha'].mul(a_param, axis=0)   # Changing/Updating the alpha values
-
+       
+        # Subsetting the data in line with the frequency range chosen
+        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] > obs_frequency_end].index), inplace=True)
+        self.sat_data.drop((self.sat_data[self.sat_data['Frequency[MHz]'] < obs_frequency_start].index), inplace=True)
+        self.sat_data_adjusted = self.sat_data
+        self.alpha_len=len(self.sat_data)
+        
+        if verbose==True:
+            print ('Number of signals inside choice frequency range: ', self.alpha_len)
+        #-------------------------------------------------------
 
         # Testing single paramter change -----------------------------------
         self.sat_data.loc[:, 'Alpha']=a_param
+        self.sat_data.loc[:, 'Sigma']=attenuation_sigma
         # ----------------------------------
     
         # Sets the frequency band
         self.frequency_band = self.get_frequency_information() 
         
         # Bandwith and level of difference for attenuation
-        self.band_lvl = band_lvl
+        self.attenuation = [attenuation_func, attenuation_sigma]
                 
         # Satellite TOD
         self.satellite_TOD, self.satellite_SED = self.get_gnss_simulation()
@@ -179,7 +184,7 @@ class satellite_sim:
             self.mask_nearby_satellites_slice = self.mask_nearby_satellites[self.time_idx[0]:self.time_idx[1]\
                                                                             , self.frequency_idx[0]:self.frequency_idx[1]]
 
-        if self.sats_only==None:
+        if self.sats_only==False:
             # Observational data
             self.calibration_data, self.calibration_data_original, self.calibration_data_noise = self.get_calibration_data()
             
@@ -200,49 +205,49 @@ class satellite_sim:
         
      
         
-## PLOTTING SECTION-START##
+# ## PLOTTING SECTION-START##
         
-    def plotting(self, individual=None, logger=None, axis_limit=None,
-                 tod_limit=None, save_file=None, file_type=None):
-        """
-        Plotting various plots: 
-        1. The 1D Simulation model vs the Observational data 
-        2. The Time-Ordered-Data for the obsevational data
-        3. The Time-Ordered-Data for the simualtion data
+#     def plotting(self, individual=None, logger=None, axis_limit=None,
+#                  tod_limit=None, save_file=None, file_type=None):
+#         """
+#         Plotting various plots: 
+#         1. The 1D Simulation model vs the Observational data 
+#         2. The Time-Ordered-Data for the obsevational data
+#         3. The Time-Ordered-Data for the simualtion data
         
-        Parameters:
-        individual - If "None" will plot the combined model vs observation data. If "not None" will show the indivdiual satellite componants
-        logger - If "None" plots will be in linear scale. If "not None" plots will be in log scale
-        axis_limit - If "None" will be the whole limit. If "not None" plots will limited [x1, x2, y1, y2]
-        tod_limit - The vmin and vmax for both TOD maps
-        sats_only - If you want to show the satellites alone
-        save_file - If "not None" file will be saved for all plots. Plots name will include both time and freqeuncy positions.
-        suffix - If "not None" plot name will contain user input suffix
+#         Parameters:
+#         individual - If "None" will plot the combined model vs observation data. If "not None" will show the indivdiual satellite componants
+#         logger - If "None" plots will be in linear scale. If "not None" plots will be in log scale
+#         axis_limit - If "None" will be the whole limit. If "not None" plots will limited [x1, x2, y1, y2]
+#         tod_limit - The vmin and vmax for both TOD maps
+#         sats_only - If you want to show the satellites alone
+#         save_file - If "not None" file will be saved for all plots. Plots name will include both time and freqeuncy positions.
+#         suffix - If "not None" plot name will contain user input suffix
         
               
-        """
+#         """
         
-        self.file_type = file_type
+#         self.file_type = file_type
         
-        self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, 
-                                                          log_scale=logger, limit=axis_limit)
+#         self.slice_plot_frequency = self._get_slice_plot_(ALL=individual, save_file=save_file, 
+#                                                           log_scale=logger, limit=axis_limit)
 
         
-        self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
+#         self.sat_sim_map = self._get_TOD_sim_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
        
-        if self.sats_only == None:
+#         if self.sats_only == None:
             
-            self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file) 
+#             self.TOD_map = self._get_TOD_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file) 
             
-            self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
-                                                              log_scale=logger, limit=axis_limit)
+#             self.get_slice_plot_diff = self._get_slice_plot_diff_(ALL=individual, save_file=save_file, 
+#                                                               log_scale=logger, limit=axis_limit)
             
-            self.TOD_residual = self._get_TOD_resid_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
+#             self.TOD_residual = self._get_TOD_resid_maps_(log_values=logger, vlimits=tod_limit, save_file=save_file)
   
 
  
             
-## PLOTTING SECTION-END##
+# ## PLOTTING SECTION-END##
 
 
 
@@ -280,17 +285,19 @@ class satellite_sim:
         '''
         
         try:
-            fname = self.file_name
-            data = pickle.load(open(self.data_loc+fname+'_average_TOD_BG_model.p', 'rb'),encoding='latin1')
-            
+            fname = str(self.file_name)
+            data = pickle.load(open(self.data_loc+str(fname)+'_average_TOD_BG_model.p', 'rb'),encoding='latin1')
+
             Temp_tod = data['TOD Avg'].T
             Temp_noise = data['BG Model'].T
-            
-            if self.sub_BG==None:
+
+            if self.sub_BG==True:
                 Temp_res = Temp_tod - Temp_noise     # Getting the BG model to be added to the simualtions instead
-            else:
+            elif self.sub_BG==False:
                 Temp_res = Temp_tod
-                
+            else:
+                print ('Error on subtraction of background model: key- sub_BG ')
+
             return Temp_res, Temp_tod, Temp_noise
 
         except Exception as e:
@@ -330,14 +337,14 @@ class satellite_sim:
         satellite_TOD = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
+                                     beam_model=self.satellite_angle[i], attenuation=self.attenuation, 
                                      sat_cat_data=self.sat_data)[0] for i, satellite_name in enumerate(self.satellite_type)])
 
         
         satellite_SED = np.array([gm.TOD_sats(name_tod=satellite_name, 
                                      fname=self.file_name, 
                                      frequency_tod=self.frequency_band, 
-                                     beam_model=self.satellite_angle[i], band_lvl=self.band_lvl, 
+                                     beam_model=self.satellite_angle[i], attenuation=self.attenuation, 
                                      sat_cat_data=self.sat_data)[1] for i, satellite_name in enumerate(self.satellite_type)])
         
         return satellite_TOD, satellite_SED
@@ -345,7 +352,13 @@ class satellite_sim:
     
     
     def get_mask_nearby_satellites(self, bandsize=None):
-        '''Creates a mask array of values for when satellites are nearby'''
+        '''
+        Creates a mask array of values for when satellites are nearby
+        Etheir creates a mask bsed on timestamps through all frequencies (bandsize==None)
+        or
+        Creates a boxed masks based on timestamps and size of mask in frequency (bandsize!=None)
+        '''
+        
         combined_con_list = '\t'.join(self.nearby_sats_time.keys())
         masks = []
         for con_b in self.cons:
@@ -361,11 +374,13 @@ class satellite_sim:
                 freq_step = self.frequency_band[1]-self.frequency_band[0]
                 # Maksed array being made
                 masked_array = np.zeros(self.frequency_band.shape) * np.zeros(self.nd_s0.shape)[:, np.newaxis]
-
+                
+                # Masks through all channels
                 if bandsize==None:
                     masked_array[self.nearby_sats_time[constellation_nearby], :]=1
                     masks.append(masked_array)
                 
+                # Makes a block for the mask data
                 else:
                     idx_range = int(np.round(bandsize/freq_step, 0))
 
@@ -401,10 +416,15 @@ class satellite_sim:
         # Slicing in the time domain:
         if start_time==None and end_time==None:
             st_pos, et_pos = 0,-1
+        elif start_time!=None and end_time==None:
+            st_pos = (np.where(self.nd_s0 > end_time)[0][0])
+            et_pos = -1
+        elif start_time==None and end_time!=None:
+            st_pos = 0
+            et_pos = (np.where(self.nd_s0 > end_time)[0][0])+1
         else:
             st_pos = (np.where(self.nd_s0 >= start_time)[0][0])
-            et_pos = (np.where(self.nd_s0 >= end_time)[0][0])   #Might be an issue to check here ????
-#             print 'Time between: '+str(self.nd_s0[st_pos])+' and '+str(self.nd_s0[et_pos])+' in seconds\n'
+            et_pos = (np.where(self.nd_s0 >= end_time)[0][0])+1  
             
             
         # Slicing in the frequency domain:
@@ -419,7 +439,6 @@ class satellite_sim:
         else:
             sf_pos = (np.where(self.frequency_band > start_frequency)[0][0])-1
             ef_pos = (np.where(self.frequency_band > end_frequency)[0][0])+1
-#             print 'Frequency between: '+str(self.frequency_band[sf_pos-1])+' and '+str(self.frequency_band[ef_pos+1])+' in MHz\n'
             
         return (st_pos, et_pos), (sf_pos, ef_pos)
     
@@ -486,18 +505,18 @@ class satellite_sim:
         
 #         #Threshold ---------------------------------------
 #         threshold_k = 400   # K   : Since there is evidence that MeerKAT has a limit function
-# #         gnss_bias_model_m = np.ma.masked_where(gnss_bias_model >=threshold_k, gnss_bias_model)     # Old method of masking the values, 
+#         gnss_bias_model_m = np.ma.masked_where(gnss_bias_model >=threshold_k, gnss_bias_model)     # Old method of masking the values, 
 #                                                                                                      # NOTE have to change the the variable name to have 'xxx_m'
-#         gnss_bias_model[gnss_bias_model >= threshold_k] = threshold_k                              # Adding a new threshold method 
-# #         satellite_TOD_slice[satellite_TOD_slice >= threshold_k] = threshold_k                        # Setting the threshold before bias choice
+#         gnss_bias_model[gnss_bias_model >= threshold_k] = threshold_k                                # Adding a new threshold method 
+#         satellite_TOD_slice[satellite_TOD_slice >= threshold_k] = threshold_k                      # Setting the threshold before bias choice
         # ----------------------------------------------
         
-        if self.add_BG==None:
+        if self.add_BG==False:
             gnss_bias_model_m = gnss_bias_model 
-        elif self.sats_only!=None:
+        elif self.sats_only==True:
             gnss_bias_model_m = gnss_bias_model 
         else:
-            gnss_bias_model_m = gnss_bias_model + self.calibration_noise_slice
+            gnss_bias_model_m = gnss_bias_model + self.calibration_noise_slice                          # Adding the calbiration noise levels
                
        
         gnss_bias_model_frequency = self._average_over_frequency_(gnss_bias_model_m)
@@ -513,245 +532,245 @@ class satellite_sim:
 # **********************************************************************************************************
     # ------------------------------------PLOTS--------------------------------------
 
-    def _get_slice_plot_(self, ALL=None, save_file=None, log_scale=None, limit=None):
-        '''
-        Function for plotting the Simulation outputs
-        '''        
+#     def _get_slice_plot_(self, ALL=None, save_file=None, log_scale=None, limit=None):
+#         '''
+#         Function for plotting the Simulation outputs
+#         '''        
 
-        plt.figure(figsize=(14, 4))
-        plt.title(self.file_name+': Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+#         plt.figure(figsize=(14, 4))
+#         plt.title(self.file_name+': Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
         
-        simulation = self.simulation_slice
-        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], simulation, color='cyan', label='Model')      
+#         simulation = self.simulation_slice
+#         plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], simulation, color='cyan', label='Model')      
         
-        if self.sats_only==None:
-            observation = self._average_over_frequency_(self.calibration_data_slice)
-            plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation, '-', color='black', label='Data')   
-        else:
-            observation=[]
+#         if self.sats_only==None:
+#             observation = self._average_over_frequency_(self.calibration_data_slice)
+#             plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation, '-', color='black', label='Data')   
+#         else:
+#             observation=[]
         
-        if self.add_BG==None:
-            bg_noise = 0 
-        else:
-            bg_noise = self._average_over_frequency_(self.calibration_noise_slice)
+#         if self.add_BG==None:
+#             bg_noise = 0 
+#         else:
+#             bg_noise = self._average_over_frequency_(self.calibration_noise_slice)
         
-        plt.xlabel('Frequency [MHz]')
-        plt.ylabel('Temperature [K]')
-        if ALL!=None:
-            for i in range(len(self.satellite_type)):
-                plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], 
-                         self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + bg_noise, 
-                         label=self.satellite_type[i]+'  x'+str(np.round(self.bias_choice[i],3)))
-            plt.ylim(bottom=1e-2)
-
-        
-        if log_scale==None:
-            plt.yscale('log')
-            plt.ylabel(r'log$_{10}$(Temperature [K])')
-            
-        if limit!=None:
-            x1, x2, y1, y2 = limit
-            plt.xlim(x1, x2)
-            plt.ylim(y1, y2)
-        
-        
-        plt.legend()
-        plt.tight_layout()
-        if save_file !=None:
-            plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
-                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
-            
-            
-            data_dump = {'frequency':self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]],
-                         'simulation':simulation,
-                         'observation':observation}
-            
-#             # Saving the data to file
-#             pickle.dump(data_dump, open(self.data_loc+self.file_name+'_data_slice_nu_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-#                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
-            
-        else:
-            plt.show()
-            
-    def _get_slice_plot_diff_(self, ALL=None, save_file=None, log_scale=None, limit=None):
-        '''
-        Function for plotting the Simulation outputs
-        '''        
-
-        plt.figure(figsize=(14, 4))
-        plt.title(self.file_name+'-Resulatant Plot: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        
-        observation = self._average_over_frequency_(self.calibration_data_slice)
+#         plt.xlabel('Frequency [MHz]')
+#         plt.ylabel('Temperature [K]')
+#         if ALL!=None:
+#             for i in range(len(self.satellite_type)):
+#                 plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], 
+#                          self._average_over_frequency_(self.satellite_TOD_slice[i]) * self.bias_choice[i] + bg_noise, 
+#                          label=self.satellite_type[i]+'  x'+str(np.round(self.bias_choice[i],3)))
+#             plt.ylim(bottom=1e-2)
 
         
-        plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation - self.simulation_slice, color='black', label='Data-Model')      
-        plt.axhline(0, color='r', linestyle='--')
-        
-        plt.xlabel('Frequency [MHz]')
-        plt.ylabel('Temperature [K]')
-
+#         if log_scale==None:
+#             plt.yscale('log')
+#             plt.ylabel(r'log$_{10}$(Temperature [K])')
             
-        if limit!=None:
-            x1, x2, y1, y2 = limit
-            plt.xlim(x1, x2)
+#         if limit!=None:
+#             x1, x2, y1, y2 = limit
+#             plt.xlim(x1, x2)
 #             plt.ylim(y1, y2)
         
         
-        plt.legend()
-        plt.tight_layout()
-        if save_file !=None:
-            plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
-                        +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_resultant_'+save_file+'.'+self.file_type)            
-
-        else:
-            plt.show()
-        
-        
-   # Work in progress
-    def _get_TOD_maps_(self, log_values=None, vlimits=None, save_file=None):
-        '''
-        Obtiaing the TOD maps for the different values for the OBSERVATION DATA
-        '''
-        
-
-        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
-                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
-
-        plt.figure()
-        plt.title(self.file_name+'-Observation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        plt.ylabel('Time [s]')
-        plt.xlabel('Frequency [MHz]')
-        
-        data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
-        
-
-        
-        if log_values==None:
-            if vlimits==None:
-                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+#         plt.legend()
+#         plt.tight_layout()
+#         if save_file !=None:
+#             plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
+#                         +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
+            
+#             data_dump = {'frequency':self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]],
+#                          'simulation':simulation,
+#                          'observation':observation}
+            
+# #             # Saving the data to file
+# #             pickle.dump(data_dump, open(self.data_loc+self.file_name+'_data_slice_nu_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+# #                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+            
+#         else:
+#             plt.show()
+            
+#     def _get_slice_plot_diff_(self, ALL=None, save_file=None, log_scale=None, limit=None):
+#         '''
+#         Function for plotting the Simulation outputs
+#         '''        
 
-        else:
-            if vlimits==None:
-                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+#         plt.figure(figsize=(14, 4))
+#         plt.title(self.file_name+'-Resulatant Plot: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+        
+#         observation = self._average_over_frequency_(self.calibration_data_slice)
+
+        
+#         plt.plot(self.frequency_band[self.frequency_idx[0]:self.frequency_idx[1]], observation - self.simulation_slice, color='black', label='Data-Model')      
+#         plt.axhline(0, color='r', linestyle='--')
+        
+#         plt.xlabel('Frequency [MHz]')
+#         plt.ylabel('Temperature [K]')
+
+            
+#         if limit!=None:
+#             x1, x2, y1, y2 = limit
+#             plt.xlim(x1, x2)
+# #             plt.ylim(y1, y2)
+        
+        
+#         plt.legend()
+#         plt.tight_layout()
+#         if save_file !=None:
+#             plt.savefig(self.plots_loc+self.file_name+'_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))
+#                         +'_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_resultant_'+save_file+'.'+self.file_type)            
+
+#         else:
+#             plt.show()
+        
+        
+#    # Work in progress
+#     def _get_TOD_maps_(self, log_values=None, vlimits=None, save_file=None):
+#         '''
+#         Obtiaing the TOD maps for the different values for the OBSERVATION DATA
+#         '''
+        
+
+#         extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+#                     self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
+
+#         plt.figure()
+#         plt.title(self.file_name+'-Observation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+#         plt.ylabel('Time [s]')
+#         plt.xlabel('Frequency [MHz]')
+        
+#         data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
+        
+
+        
+#         if log_values==None:
+#             if vlimits==None:
+#                 hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+            
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
+
+#         else:
+#             if vlimits==None:
+#                 hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
        
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
 
-        plt.tight_layout()
-        if save_file !=None:
-            plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
+#         plt.tight_layout()
+#         if save_file !=None:
+#             plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                         '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
-            # Saving the data to file
-            pickle.dump(data_slice, open(self.data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
-            
-        else:
-            plt.show()
-            
-            
-   # Work in progress
-    def _get_TOD_sim_maps_(self, log_values=None, vlimits=None, save_file=None):
-        '''
-        Obtiaing the TOD maps for the different values for the SIMULATION DATA
-        log_values - 
-        '''
-
-
-        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
-                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
-
-        plt.figure()
-        plt.title(self.file_name+'-Simulation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        plt.ylabel('Time [s]')
-        plt.xlabel('Frequency [MHz]')
-        
-        data_slice = self.simulation_TOD_slice
-        
-
-        
-        if log_values==None:
-            if vlimits==None:
-                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
-            
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
-
-        else:
-            if vlimits==None:
-                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
-       
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
-
-        plt.tight_layout()
-        if save_file !=None:
-            plt.savefig(self.plots_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
-            
-#             # Saving the file
-#             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#             # Saving the data to file
+#             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
 #                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
-        else:
-            plt.show()
+            
+#         else:
+#             plt.show()
             
             
-    def _get_TOD_resid_maps_(self, log_values=None, vlimits=None, save_file=None):
-        
-        
-        extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
-                    self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
+#    # Work in progress
+#     def _get_TOD_sim_maps_(self, log_values=None, vlimits=None, save_file=None):
+#         '''
+#         Obtiaing the TOD maps for the different values for the SIMULATION DATA
+#         log_values - 
+#         '''
 
-        plt.figure()
-        plt.title(self.file_name+'-Residual: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
-        plt.ylabel('Time [s]')
-        plt.xlabel('Frequency [MHz]')
-        
-        data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
-        sim_slice = self.simulation_TOD_slice
 
-        residual_slice = data_slice - sim_slice
+#         extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+#                     self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
+
+#         plt.figure()
+#         plt.title(self.file_name+'-Simulation Data: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+#         plt.ylabel('Time [s]')
+#         plt.xlabel('Frequency [MHz]')
         
-        if log_values==None:
-            if vlimits==None:
-                hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+#         data_slice = self.simulation_TOD_slice
+        
+
+        
+#         if log_values==None:
+#             if vlimits==None:
+#                 hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow(np.log10(data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
             
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
 
-        else:
-            if vlimits==None:
-                hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto')
-            else:
-                hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+#         else:
+#             if vlimits==None:
+#                 hb=plt.imshow((data_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow((data_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
        
-            cbar = plt.colorbar(hb)
-            cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
 
-        plt.tight_layout()
-        if save_file !=None:
-            plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                        '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
+#         plt.tight_layout()
+#         if save_file !=None:
+#             plt.savefig(self.plots_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                         '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
             
-            # Saving the data to file
-            pickle.dump(data_slice, open(self.data_loc+self.file_name+'_residual_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
-                            '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+# #             # Saving the file
+# #             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_sim_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+# #                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+#         else:
+#             plt.show()
             
-        else:
-            plt.show()
+            
+#     def _get_TOD_resid_maps_(self, log_values=None, vlimits=None, save_file=None):
+        
+        
+#         extent = [self.frequency_band[self.frequency_idx[0]], self.frequency_band[self.frequency_idx[1]],\
+#                     self.nd_s0[self.time_idx[1]], self.nd_s0[self.time_idx[0]]]
+
+#         plt.figure()
+#         plt.title(self.file_name+'-Residual: Time-['+str(np.round(self.nd_s0[self.time_idx[0]], 2))+'-'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'] seconds')
+#         plt.ylabel('Time [s]')
+#         plt.xlabel('Frequency [MHz]')
+        
+#         data_slice = self.calibration_data[self.frequency_idx[0]:self.frequency_idx[1], self.time_idx[0]:self.time_idx[1]]
+#         sim_slice = self.simulation_TOD_slice
+
+#         residual_slice = data_slice - sim_slice
+        
+#         if log_values==None:
+#             if vlimits==None:
+#                 hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow(np.log10(residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+            
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'log$_{10}$(T) [K]', rotation=270, labelpad=20, y=0.45)
+
+#         else:
+#             if vlimits==None:
+#                 hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto')
+#             else:
+#                 hb=plt.imshow((residual_slice.T), extent=extent, aspect='auto', vmin=vlimits[0], vmax=vlimits[1])
+       
+#             cbar = plt.colorbar(hb)
+#             cbar.set_label(r'T [K]', rotation=270, labelpad=20, y=0.45)
+
+#         plt.tight_layout()
+#         if save_file !=None:
+#             plt.savefig(self.plots_loc+self.file_name+'_obs_data_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                         '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'.'+self.file_type)
+            
+#             # Saving the data to file
+#             pickle.dump(data_slice, open(self.data_loc+self.file_name+'_residual_'+str(np.round(self.nd_s0[self.time_idx[0]], 2))+
+#                             '_'+str(np.round(self.nd_s0[self.time_idx[1]], 2))+'_'+self.sat_beam+'_'+save_file+'_tod.p', 'wb'))
+            
+#         else:
+#             plt.show()
 
  
 

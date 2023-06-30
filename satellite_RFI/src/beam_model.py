@@ -152,7 +152,7 @@ def emss_beam(freq, theta):
 
     P_centered = (Pv_centered+Ph_centered)/2
     # Interpolatiion function
-    P_interp = unsorted_interp2d(th, f, P_centered, kind='linear')
+    P_interp = unsorted_interp2d(th, f, P_centered, kind='cubic')
     ##---------------------------------------------------------------------##
     
     # Checking to see if thet is a masked array, then only the data is used
