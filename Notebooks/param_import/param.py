@@ -4,6 +4,7 @@ Note; this should be untilized everywhere
 '''
 from imports import *
 
+
 '''
 -------------------------------------------GENERAL PARAMATERS
 '''
@@ -30,10 +31,10 @@ folder_2021 = 'SCI-20210212-MS-01'
 ## VARIOUS OBSERVATIONS
 observation_2018 = ['1551037708', '1551055211', '1553966342', '1554156377']
 
-obseractations_2019 = ['1555775533','1555793534', '1555861810', '1556034219',
+observation_2019 = ['1555775533','1555793534', '1555861810', '1556034219',
                '1556052116', '1556120503', '1556138397', '1555879611', '1561650779', '1562857793']
 
-observations_2021 = ['1631379874', '1631387336', '1631552188', '1631559762', '1631659886', 
+observation_2021 = ['1631379874', '1631387336', '1631552188', '1631559762', '1631659886', 
  '1631667564', '1631724508', '1631732038', '1631810671', '1631818149', '1634835083']
 
 
@@ -91,7 +92,7 @@ telescope_Lat = -(30. + 42./60. + 47.41/3600.)
 # The constellations that we are interested in
 # Note user intervention is required.
 # Note number of constellations can be less
-satellite_type = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'qzs', 'sbas'] # Can be all or one
+satellite_type = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'sbas','qzs'] # Can be all or one REMOVED SBAS
 # satellite_type = ['geo'] # Can be all or one
 # satellite_type = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'qzs', 'sbas', 'geo'] # Can be all or one
 
@@ -105,29 +106,42 @@ beam_model = 'emss'
 --------------------------------------------------CHI^2 FITTING
 '''
 ## ----------------------------------------------CHI-SQAURE OUTPUT FOLDER
-folder = 'sat_8/'
+folder = 'sat_4/'
 ## ----------------------------------------------CHI-SQAURE SUFFIX
 save_suffix="v1"
 
 ## ----------------------------------------------MASKING INFORMATION
 # Mask-none
-mask_type=False
-if mask_type==False:
+mask_type="temporal"
+# print (mask_type)
+if mask_type==None:
     nearby_constellations=None
 # Mask-degree
 if mask_type=='degree':
-    mask_degree='5F'
+    mask_degree="5F"
     # Constellation files with 
     nearby_constellations = data_save+'nearby_satellites/nearby_satellite_close_angle_'+mask_degree+'.p'
 # Mask-thermal
 if mask_type=='thermal':
     nearby_constellations=None
-    mask_temperature=25
+    mask_temperature=100
+# Mask-temporal
+## -------------------------------------------------------SUB TIME SLICE
+# If ts and te is set to None, will return the edges of the frequency range
+# If ts and te is not set to None, will return indices closest to the given values.
+# Note ts can be None and te does not have to be (vice-versa)
+if mask_type=='temporal':
+    ts_slice=5500
+    te_slice=6200
+
+    nearby_constellations=None
+else:
+    ts_slice, te_slice=None, None
     
 ## -------------------------------------------CHIS-SQUARE SIGMA
 ## If True chi_sigma will become the radiometer equation, if False chis_sigma=1
 
-chi_sigma=True
+chi_sigma=False
 # chi_sigma=False
 
 ## -----------------------------------------------SATELLITE CATALOGUE
@@ -158,26 +172,11 @@ bias = np.ones(len(constellations_remain))
 fs_slice=1100
 fe_slice=1350
 
-## -------------------------------------------------------SUB TIME SLICE
-# If ts and te is set to None, will return the edges of the frequency range
-# If ts and te is not set to None, will return indices closest to the given values.
-# Note ts can be None and te does not have to be (vice-versa)
-
-# ts_slice=None
-# te_slice=None
-
-# ts_slice=775
-# te_slice=1000
-
-# ts_slice=2200
-# te_slice=2400
-
-ts_slice=5500
-te_slice=6200
 
 ## ---------------------------------------Time Averaging
 # Controlling the time average.
 # If set to 'None' then will ignore
+# time_size=None   # sec
 time_size=10   # sec
 
 ## ---------------------------------------------------DAMPENIG FUNCTION
