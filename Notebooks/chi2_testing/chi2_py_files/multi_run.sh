@@ -17,8 +17,7 @@ time_average_main=10
 
 time_len=${#time_starts[@]}
 # File path for param.py
-# parampath=param.py
-parampath=paramCopy1.py
+parampath=../../param_import/param.py
 sbashpath=optimization_sbatch.sh
 # File name
 sed -i '12s/.*/file='$filename'/' $parampath

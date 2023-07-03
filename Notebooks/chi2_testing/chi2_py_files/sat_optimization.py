@@ -1,11 +1,12 @@
 ## ---------------------------------------------PARAMETES AND IMPORTS
 # SYSTEMS IMPORT
 import sys
+sys.path.insert(0, '../../param_import/')
 # -------------------------------------------LIST OF IMPORTS
 from imports import *
 # -------------------------------------------LIST OF PARAMETERS
 # import param as pm
-import paramCopy1 as pm
+import param as pm
 # -------------------------------------------OBSERVATION NAME + DATE 
 fname, dtime=tools.timepoint(fname=pm.file, date=None)
 
