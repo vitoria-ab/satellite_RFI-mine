@@ -1,5 +1,5 @@
 # satellite_RFI
-Updated: 2022/01/13 - Satellite Simulation RFI code for MeerKLASS - Pre-Survey Experiments
+Updated: 2023/07/01 - Satellite Simulation RFI code for MeerKLASS - Pre-Survey Experiments
 
 - Memo: https://www.overleaf.com/read/myyvyyvdjrkg   (Under construction)
 
@@ -15,6 +15,10 @@ Calculating the positioning of the satellites with respect to the satellite poin
 Stage 3:
 Simulating satellite signal and fitting to observational data [Notebbooks/Satellite_simulations].
 
+### Note
+Currently the code runs a Py2 [Stage 1&2] / Py3 [Stage 3] hybrid. 
+Work on making it Py3 is still under construction for now.
+
 ## Requirements to run:
 In order to run all 3 stages you need access to the ILIFU cluster.
 
@@ -23,7 +27,8 @@ In order to run all 3 stages you need access to the ILIFU cluster.
 1. srun --pty bash
 ```
 ```
-2. singularity shell /idia/software/containers/hi_im-py3.simg
+2.1 signularity shell /idia/software/containers/hi_im-python2.7.simg
+2.2 singularity shell /idia/software/containers/hi_im-py3.simg
 ```
 ```
 3. cd into satellite-RFI
@@ -32,7 +37,8 @@ In order to run all 3 stages you need access to the ILIFU cluster.
 4. pip install skyfield --user
 ```
 ```
-5. python3 setup.py install --user
+5.1 python2 setup.py install -user
+5.2 python3 setup.py install --user
 ```
 
 ###  Set the container:
@@ -42,7 +48,7 @@ cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 
 
 ## Data location
-The observational data is stored currently at "/idia/projects/hi_im/satellite_rfi/<specific_folder_names>"
+The observational data is stored currently at "hi_im/brandon/meerkat_gain_cali/<specific_folder_names>"
 
 
-For further questions contact: phD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com); Supervisor: Prof. Mario Santos (email.add)
+For further questions contact: phD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com)
