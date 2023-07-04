@@ -24,7 +24,7 @@ import time
 _c_list = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
           "#8c564b", "#e377c2", "#17becf", "#bcbd22", "#7f7f7f"]
 
-_gps_tles = [ 'gps-ops', 'glo-ops']#, 'beidou', 'galileo', 'sbas', ] #'active', 
+_gps_tles = [ 'gps-ops', 'glo-ops', 'beidou', 'galileo', 'sbas', ] #'active', 
 _comms_tles = []#['geo',    'iridium', 'iridium-NEXT',]
 
 
@@ -43,7 +43,7 @@ def get_sat_tles(sattype='geo', reload=False, source_url=None):
 
     if source_url is None:
         source_url = 'https://www.celestrak.com/NORAD/elements/'
-    print 'load sat catalogue from %s %s.txt'%(source_url, sattype)
+    print ('load sat catalogue from %s %s.txt'%(source_url, sattype))
     #gps_tles = ['gps-ops.txt', 'glo-ops.txt', 'beidou.txt', 'galileo.txt', 'sbas.txt', ]
     #comms_tles = ['iridium.txt', 'iridium-NEXT.txt', 'geo.txt']
     #if geostationary:
@@ -63,12 +63,17 @@ def get_sat_tles(sattype='geo', reload=False, source_url=None):
 def __get_sat_coord__(key, obs_time, obs_location, sats):
 
     coords = []
+    coords_rd = []
+    r_dis = []       # Edit
     #for key in keys:
     satellite = sats[key]
     topcentric = (satellite - obs_location).at(obs_time)
     alt, az, distance = topcentric.altaz()
+    ra, dec, distance2 = topcentric.radec()
     coords.append([az.radians, alt.radians])
-    return [coords, key]
+    coords_rd.append([ra, dec])
+    r_dis.append(distance.m)   # Edit
+    return [coords, key, r_dis, coords_rd]  # Edit
 
 def get_sat_coods(sats, obs_time_list, obs_location):
     #for obs_time in obs_time_list:
@@ -81,6 +86,8 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     obs_time = load.timescale(builtin=True).utc(*obs_time[:5] + (obs_time_range,))
     coords = []
     name = []
+    distance = []  # Edit
+    coords_rd = []
 
     pool =  Pool(16)
     r = pool.map(partial(__get_sat_coord__, sats=sats, 
@@ -88,13 +95,17 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     for _r in r:
         coords.append(_r[0][0])
         name.append(_r[1])
+        distance.append(_r[2])  # Edit
+        coords_rd.append(_r[3]) # ra and dec
     pool.close()
     pool.join()
 
     name = np.array(name)
     coords = np.array(coords)
     coords = np.rollaxis(coords, -1, 0)
-    return coords, name
+    distance = np.array(distance)  # Edit
+    coords_rd = np.array(coords_rd)
+    return coords, name, distance, coords_rd
 
 def unix_convert(tlist, sel):
     """
@@ -237,12 +248,14 @@ class Satellite_Catalogue(object):
         #obs_time_list = self.obs_time + self.obs_time_list
         coord_list_total = []
         name_list_total = []
+        distance_list_total = []   # Edit
         for oo, obs_start_time in enumerate(self.obs_time):
             obs_time_list = obs_start_time + self.obs_time_list[oo]
             coord_list = []
             name_list  = []
+            distance_list = []   # Edit
             delete_list = []
-            print "Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc)
+            print ("Time range %s - %s"%(obs_time_list[0].utc, obs_time_list[-1].utc))
             for ii, sat_type in enumerate(self.sats_type):
                 t0 = time.time()
                 sats = copy.copy(self.sats[ii])
@@ -250,15 +263,14 @@ class Satellite_Catalogue(object):
                 # Edit - removes satellites thats are below the horizon
                 sats, tlist_ = remove_sats_below_horizen(sats, obs_time_list[0], 
                                                  obs_time_list[-1], self.obs_location)
-                print "Satellite %12s has %4d satellites"%(sat_type, 
-                                                         len(sats.keys())),
+                print ("Satellite %12s has %4d satellites"%(sat_type, 
+                                                         len(sats.keys()))),
                 if len(tlist_)==0:
                     delete_list.append(ii)
-                    print '[Removing this constellation from sats_type]'
+                    print ('[Removing this constellation from sats_type]')
                 
                 else:
-                    coord_list_sats, name_list_sats\
-                            = get_sat_coods(sats, obs_time_list, self.obs_location)
+                    coord_list_sats, name_list_sats, distance_list_sats, coords_rd_list_sats = get_sat_coods(sats, obs_time_list, self.obs_location)   # Edit
 
                     coord_list_sats_ma = []   # To store the masked values
                     for jj in range(len(tlist_)):
@@ -283,7 +295,8 @@ class Satellite_Catalogue(object):
 
                     coord_list.append(coord_list_sats_ma)
                     name_list.append(name_list_sats)
-                    print " [use %6.2f s]"%(time.time() - t0)
+                    distance_list.append(distance_list_sats)   # Edit
+                    print (" [use %6.2f s]"%(time.time() - t0))
 
                 coord_list_total.append(coord_list)
                 name_list_total.append(name_list)
@@ -292,14 +305,15 @@ class Satellite_Catalogue(object):
         """
         Deleting any satellite constellation that do not show from the list
         """
-        self.sats_type = [element for (i,element) in enumerate(self.sats_type) if i not in delete_list]
+        self.sats_type_remain = [element for (i,element) in enumerate(self.sats_type) if i not in delete_list]
         
         
         """
         This section is for the satellite coords to change their shape for the check angular
-        section of the code. Will comment tomorrow
+        section of the code. Will comment tomorrow  LOL!!!!!
         """
         coord_sats_total = []
+
         for jj in range(len(coord_list_total[0])):
 
             cons_sats = ma.masked_array(coord_list_total[0][jj])
@@ -312,17 +326,33 @@ class Satellite_Catalogue(object):
             except IndexError:
                 continue 
 
-            coord_sats_total.append(ma.masked_array(constellation_list))   
+            coord_sats_total.append(ma.masked_array(constellation_list)) 
+
+            
+        """
+        This section is to reduce a dimension in the distance data
+        """
+        
+        for rr in range(len(distance_list)):
+            # An extra dimension inside distance [xx,yy,zz] so we are removing yy dimension which is not needed or why it is there???
+            stand_in = np.zeros((distance_list[rr].shape[0], distance_list[rr].shape[2]))
+            stand_in = distance_list[rr][:,0,:]
+            distance_list[rr] = stand_in     # Overwriting the distance information from 3d obj. to 2d obj. 
 
         self.coord_list = [coord_sats_total]
-        self.name_list  = name_list_total
-
+        self.name_list  = name_list_total       # Holds naming information for the individual satellites that remain
+        self.distance_list = distance_list   # Note the mask used in coord_list should be applied here, but we assuming the mask will work further down 
+    
         
         
-    def itersats_temperature(self, pointings, beam_func=None):
+    def itersats_temperature(self, pointings, beam_func=None, close_angle=None):
 
         '''
         pointings : ndarray N x 2 (Az, Alt) in deg
+        
+        beam_func -  type of beam given to the coordinates. If==None, then output is the angles
+        
+        close_angle - If None, will ignore Else, will mask all satellites that do not come closer than close_angle
 
         yield: separation angle if beam_func is None; or return the 
                 beam convolved temperature, assuming the sats temperature
@@ -348,7 +378,7 @@ class Satellite_Catalogue(object):
             pointing_Alt = pointings[oo][:, 1][:, None] * np.pi / 180.
 
             angle_separation_list = []
-            for ii in tqdm(range(len(self.sats_type))):
+            for ii in tqdm(range(len(self.sats_type_remain))):
 
                 coords = coord_list[ii]
 #                 coords = np.array(coords)
@@ -361,10 +391,25 @@ class Satellite_Catalogue(object):
                        + np.cos(pointing_Alt) * np.cos(coords_Alt)\
                        * np.cos(pointing_Az - coords_Az)
                 _angle = np.arccos(_angle) * 180. / np.pi
+                
+                '''--------Checking satellites coming close to telescope pointing--------'''
+                # TThe angle at which you want to check satellites on closest approach
+                if close_angle is not None:
+                    mask_angle = np.ones(_angle.shape)   # 2d angle shape
+                    for i in range(_angle.shape[1]):     # running
+                        if len(np.ma.where(_angle[:, i] < close_angle)[0])!=0:
+                            mask_angle[:,i] = 0
+                        else:
+                            sats_name[i]=''
+                        
+
+                    _angle = np.ma.masked_array(_angle, mask=mask_angle)
+                '''--------------------------------------------------------------------'''
                 if beam_func is not None:
                     _angle = beam_func(_angle)
+                    _angle /= self.distance_list[ii].T**2       # Edit - divided the distance (r^2) from _angle
 
-                yield obs_time_list, self.sats_type[ii], sats_name, _angle
+                yield self.sats_type_remain[ii], sats_name, _angle
 
                 
                 
@@ -391,7 +436,7 @@ class Satellite_Catalogue(object):
             pointing_Alt = pointings[oo][:, 1][:, None] * np.pi / 180.
 
             angle_separation_list = []
-            for ii in range(len(self.sats_type)):
+            for ii in range(len(self.sats_type_remain)):
 
                 coords = coord_list[ii]
 #                 coords = ma.masked_array(coords)  # Already a masked array (can check)
@@ -412,10 +457,14 @@ class Satellite_Catalogue(object):
             
             
             
-    def check_angular_separation(self, pointings, max_angle=10, beam_func=None,
+    def check_angular_separation(self, pointings, max_angle=None, min_angle=None, beam_func=None,
             ymin=None, ymax=None, axes=None):
+        '''
+        max_angle - The maximum angular seperation of a satellite to the telescope pointings. Angles larger will be masked.
+        min_angle - The minimum angular seperation of a satellite to the telescope pointings. Angles smaller will be saved.
+        '''
         
-        
+        self.az_alt_pointings = pointings
         self.get_angular_separation(pointings, beam_func=beam_func)
         for oo, obs_start_time in enumerate(self.obs_time):
 #             if axes is None:
@@ -433,14 +482,16 @@ class Satellite_Catalogue(object):
             
             # Edit - list to save satellite angles with respect to the pointing 
             satellite_angle = []
-            for ii in range(len(self.sats_type)):
+            for ii in range(len(self.sats_type_remain)):
 
                 _angle = self.angle_separation_list[oo][ii]
-                _angle = np.ma.masked_greater(_angle, max_angle)
+                    
+                if max_angle!=None:
+                    _angle = np.ma.masked_greater_equal(_angle, max_angle)
                 #Edit - saving the angle which the satellites make with the pointing
                 satellite_angle.append(_angle)
-                if beam_func is not None:
-                    _angle = beam_func(_angle)
+#                 if beam_func is not None:
+#                     _angle = beam_func(_angle)
 
 #                 ax.plot(x_axis, _angle, '.-', color=_c_list[ii], ms=1, lw=0.1)
 #                 ax.plot(x_axis, _angle, '-', color=_c_list[ii], lw=0.1)
@@ -486,24 +537,36 @@ class Satellite_Catalogue(object):
                     theta_offset=0.5 * np.pi, theta_direction=-1)
             
             legend_list = []
-            for ii in range(len(self.sats_type)):
+           
+                
+            for ii in range(len(self.sats_type_remain)):
 
                 
                 coords = coord_list[ii]
                 coords = np.array(coords)
 
                 #names  = name_list[ii]
+                ax.plot(self.az_alt_pointings[:, 0]*np.pi/180, 90-self.az_alt_pointings[:, 1], alpha=1, color='#808080', label='Coverage')
 
                 for jj in range(coords.shape[1]):
                     good = coords[:, jj,1] > 0
                     ax.plot(coords[good,jj,0], 90.- coords[good,jj,1] * 180./np.pi,
                             '.-', color=_c_list[ii], mfc=_c_list[ii], mec='none',
                             lw=0.1, ms=2)
-                #ax.scatter(coords[:,0], 90.- coords[:,1] * 180./np.pi, s=10,
-                #      marker='s', facecolor='none', edgecolor=_c_list[ii])
+                    
+#                     ax.scatter(coords[:,0], 90.- coords[:,1] * 180./np.pi, s=40,
+#                          marker='s', facecolor='none',  alpha=1, label='Coverage')
+    
+                # ax.scatter(self.az_alt_pointings[:, 0]*np.pi/180, 90-self.az_alt_pointings[:, 1], s=10,
+                #  marker='s', facecolor='none',  alpha=0.4, label='Coverage')
 
+               
+                
                 legend_list.append(mpatches.Patch(color=_c_list[ii], 
-                                                  label='%s'%self.sats_type[ii]))
+                                                  label='%s'%self.sats_type_remain[ii]))
+                
+            legend_list.append(mpatches.Patch(color='#808080', 
+                                                  label='Coverage'))
 
             ax.set_rlim(0, 90)
             ax.set_title(self.obs_time[oo])
@@ -538,7 +601,7 @@ class Satellite_Catalogue(object):
         _sats_list2 = []
 
         legend_list = []
-        for ii in range(len(self.sats_type)):
+        for ii in range(len(self.sats_type_remain)):
             coords_1 = coord_list_1[ii]
             coords_1 = np.array(coords_1)
 
@@ -646,39 +709,40 @@ class Satellite_Catalogue(object):
         plt.show()
 
 
-class MeerKATsite_Satellite_Catalogue(Satellite_Catalogue):
+class Telescopesite_Satellite_Catalogue(Satellite_Catalogue):
 
     #def __init__(self, reload=False, source_url=None):
-    def __init__(self, *args, **kwargs):
+#     def __init__(self, *args, **kwargs):    # Can also remove will call the parent class init function
 
-        super(MeerKATsite_Satellite_Catalogue, self).__init__(*args, **kwargs)
+#         super(Telescopesite_Satellite_Catalogue, self).__init__(*args, **kwargs)  # Will automatically call this function
+        
+#         MeerKAT information
+#         telescope_Lon =  (21. + 26./60. + 38.00/3600.) * u.deg #
+#         telescope_Lat = -(30. + 42./60. + 47.41/3600.) * u.deg #
+#         self.obs_location = [telescope_Lat, telescope_Lon]
 
-        meerKAT_Lon =  (21. + 26./60. + 38.00/3600.) * u.deg #
-        meerKAT_Lat = -(30. + 42./60. + 47.41/3600.) * u.deg #
-        self.obs_location = [meerKAT_Lat, meerKAT_Lon]
+#     def get_angular_separation(self, pointings, beam_func=None):    # Was built for the default function
 
-    def get_angular_separation(self, pointings, beam_func=None):
+#         """Obsolete, beam function are given in the beam function package"""
+# #         if beam_func is None:
+# #             # using modified sinc function, quite close to Khan's model
+# #             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
 
-        """Obsolete, beam function are given in the beam function package"""
-#         if beam_func is None:
-#             # using modified sinc function, quite close to Khan's model
-#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+#         super(Telescopesite_Satellite_Catalogue, self).get_angular_separation(
+#                 pointings, beam_func=beam_func)
 
-        super(MeerKATsite_Satellite_Catalogue, self).get_angular_separation(
-                pointings, beam_func=beam_func)
-
-    def check_angular_separation(self, pointings, max_angle=100, beam_func=None,
-            ymin=None, ymax=None, axes=None):
+#     def check_angular_separation(self, pointings, max_angle=None, beam_func=None,     
+#             ymin=None, ymax=None, axes=None):
         
 
-        """Obsolete, beam function are given in the beam function package"""
-#         if beam_func is None:
-#             # using modified sinc function, quite close to Khan's model
-#             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
+#         """Obsolete, beam function are given in the beam function package"""    # Was built the same
+# #         if beam_func is None:
+# #             # using modified sinc function, quite close to Khan's model
+# #             beam_func = lambda x: np.sinc(x) ** 2 * ((1/(np.abs(x) + 1)) ** 2.5)
          
-        return super(MeerKATsite_Satellite_Catalogue, self).check_angular_separation(
-            pointings, max_angle=max_angle,
-            beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
+#         return super(Telescopesite_Satellite_Catalogue, self).check_angular_separation(
+#             pointings, max_angle=max_angle,
+#             beam_func=beam_func, ymin=ymin, ymax=ymax, axes=axes)
 
 
 

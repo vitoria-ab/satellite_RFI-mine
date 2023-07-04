@@ -23,11 +23,10 @@ def sat_extract(folder):
         
         for i, line in enumerate(sat_file):
             if sat[0] in line:
-                print sat_file[i]
+#                 print sat_file[i]
                 sat_write.write(sat_file[i])
                 sat_write.write(sat_file[i+1])
                 sat_write.write(sat_file[i+2])
 
         sat_write.close()
         
-sat_extract(folder = '2019_03_07_tle/')

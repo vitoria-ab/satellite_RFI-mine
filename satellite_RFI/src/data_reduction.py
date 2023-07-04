@@ -25,10 +25,32 @@ font_s = {'family': 'serif',
 'size': 14,
 }
 
-class Data_reduction:
+def gain_outliers(data):
+    '''
+    Function that searchs for outliers within the gain map.
+    Any channel that has values outside 3sigma of the mean are flagged
+    parameters:
+        data - gain map
+    '''
+    mean = np.ma.mean(data)
+    std = np.ma.std(data)
+
+    upper = mean+3*std
+    lower = mean-3*std
+
+    upper_channel = np.unique(np.ma.where(data>upper)[1])
+    lower_channel = np.unique(np.ma.where(data<lower)[1])
+
+    combine_channel = np.sort(np.concatenate((lower_channel, upper_channel)))
+    data.mask[:, combine_channel]=True
+    
+    return data
+
+class data_reduction:
     def __init__(self,
-                 folder_name = None,
-                 file_name = None,
+                 folder_name=None,
+                 file_name=None,
+                 user_input=None,
                  folder_output=None,
                  obs_data_loc = '/idia/projects/hi_im/',
                  vis_data_loc = '/idia/projects/hi_im/raw_vis/',
@@ -38,6 +60,8 @@ class Data_reduction:
                 self.folder_name = folder_name
                 
                 self.file_name = file_name
+                
+                self.user_input = user_input
 
                 self.folder_output = folder_output
                 
@@ -50,24 +74,25 @@ class Data_reduction:
                 self.freqs, self.timestamps =  self.freqs_and_time()                  
             
             
-    def get_obs_data(self, obs_data_loc, user_input = None):
+    def get_obs_data(self, obs_data_loc):
         '''
         Calling the full data set that is defined at some location
         obs_data_loc - Location of the full data set (.rdb files)
         '''
         data = None
         try:
-            if user_input == None:
+            if self.user_input == None:
         
                 fname = self.file_name
         
                 data = katdal.open(obs_data_loc + self.folder_name+'/'+ fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
             
             else:
-                data = katdal.open(user_input)
+                print ('user input data')
+                data = katdal.open(self.user_input)
                 
         except Exception as e:
-            print 'File not found :('
+            print ('File not found :(')
         
         return data
     
@@ -123,8 +148,8 @@ class Data_reduction:
         recv_h = ant_name+'h'
         recv_v = ant_name+'v'  
         
-        gain_data_h = pickle.load(open(gain_data_loc+'/'+fname+'_'+recv_h+'_level3_data'))    ## hh-pol
-        gain_data_v = pickle.load(open(gain_data_loc+'/'+fname+'_'+recv_v+'_level3_data'))   ## vv-pol
+        gain_data_h = pickle.load(open(gain_data_loc+fname+'_'+recv_h+'_level3_data'))    ## hh-pol
+        gain_data_v = pickle.load(open(gain_data_loc+fname+'_'+recv_v+'_level3_data'))   ## vv-pol
 
         gain_map_h = gain_data_h['gain_map']
         gain_map_v = gain_data_v['gain_map']
@@ -146,15 +171,14 @@ class Data_reduction:
         """Runs a the wiggleZ_area code in order to obtain the time positioning of the noise diodes"""
         area(fname=fname, file_path=self.folder_output)                                                     # Calls a function to extract information from the data
 
-        scan_time, scan_az, scan_el = np.load(self.folder_output+fname+'_Time_Pos.npy')                     # Full "scan" time, Azimuth and Elevation positions
+        scan_time, scan_az, scan_el, scan_ra, scan_dec = np.load(self.folder_output+fname+'_Time_Pos.npy')                     # Full "scan" time, Azimuth and Elevation positions
 
         nd_off_scan_data = np.load(self.folder_output+fname+'_nd_S0.npy')                                   # Extracting the Noise diode "off" time and position
         nd_off_scan_pos, nd_off_scan = np.array(nd_off_scan_data[0], dtype='int64'), nd_off_scan_data[1]
 
         nd_off_in_st_pos = np.array([np.where(i==scan_time)[0][0] for i in nd_off_scan])         # Getting the position of the nd_0 in the scan time period
-        
-        print '1. Time for when noise diode off; \n2. The position when noise diode is off in the scan; \n3. Scan time; \n4. Az&El when noise diode is off during scan'
-        return nd_off_scan-int(fname), nd_off_scan_pos, scan_time-int(fname), (scan_az[nd_off_in_st_pos], scan_el[nd_off_in_st_pos])
+                
+        return nd_off_scan-int(fname), nd_off_scan_pos, scan_time-int(fname), (scan_az[nd_off_in_st_pos], scan_el[nd_off_in_st_pos]), (scan_ra[nd_off_in_st_pos], scan_dec[nd_off_in_st_pos])
     
  
         
@@ -173,29 +197,32 @@ class Data_reduction:
             x = 'v-pol_interp'
             y = 'v-pol'
         else:
-            print 'Error wrong polarization'
+            print ('Error wrong polarization')
 
-        T_rec = np.mean(pickle.load(open(mask_loc+self.file_name+'_S1_'+antenna+'_t_rec.p', 'rb'))[x], axis=0)
-        T_el = np.mean(pickle.load(open(mask_loc+self.file_name+'_S1_'+antenna+'_t_el.p', 'rb'))[x], axis=0)
-        T_gal = np.mean(pickle.load(open(mask_loc+self.file_name+'_S1_'+antenna+'_t_gal.p', 'rb'))[y], axis=0)
+        T_rec = np.mean(pickle.load(open(mask_loc+self.file_name+'_'+antenna+'_t_rec.p', 'rb'))[x], axis=0)
+        T_el = np.mean(pickle.load(open(mask_loc+self.file_name+'_'+antenna+'_t_el.p', 'rb'))[x], axis=0)
+        T_gal = np.mean(pickle.load(open(mask_loc+self.file_name+'_'+antenna+'_t_gal.p', 'rb'))[y], axis=0)
         T_cmb = 2.73 
         
         # Index to say where the RFI free zone is
-        data_idx = pickle.load(open(mask_loc+self.file_name+'_S1_'+antenna+'_t_rec.p', 'rb'))['v-pol idx']
+        data_idx = pickle.load(open(mask_loc+self.file_name+'_'+antenna+'_t_rec.p', 'rb'))['v-pol idx']
 
         noise = T_rec + T_el + T_gal + T_cmb
 
         return noise, T_rec, T_el, T_gal, data_idx
 
 
-    def conversion_rW_mK(self, antenna, pol, nd_off, frequency, c_start, c_end, mask_loc):
+    def conversion_rW_mK(self, antenna, pol, nd_off, frequency, c_start, c_end, mask_loc, fband=None):
 
         if pol == 'h':
             x = 0
-        else:
+        elif pol == 'v':
             x = 1
+        else:
+            print ('Polarisation does not match')
 
         gain_map=self.get_gain_data(ant_no=antenna)[x]
+        gain_map=gain_outliers(data=gain_map)
         visibility=self.get_vis_data(ant_no=antenna)[x]
 
         fname = self.file_name
@@ -203,15 +230,12 @@ class Data_reduction:
             ant_name = str(self.obs_data.ants[antenna])[0:4]
         else:
             ant_name = ant_no
-            
-#         print ant_name
 
         # Noise models
         background_models = self.get_background_models(antenna=ant_name, pol=pol, mask_loc=mask_loc)
         total_bg_models = background_models[0]
         rfi_free_idx = background_models[4]
-        
-        
+
         # Mask
         path_2_masks = '/idia/projects/hi_im/raw_vis/katcali_output/level1_output/mask/'+str(fname)+'_'+ant_name+pol+'_mask'
         mask_load = pickle.load(open(path_2_masks, 'rb'))
@@ -220,31 +244,41 @@ class Data_reduction:
         g_t = np.ma.mean(gain_map[nd_off, c_start:c_end], axis=1) 
         g_nu = np.ma.mean(gain_map[nd_off, c_start:c_end], axis=0) 
 
-        # Try and see this adjustment here 
-        # Saving a copy just in case, this contains the rfi section as well
-        # a1_true = visibility[nd_off, c_start:c_end] / gain_time_mean             # Old
-        a1_true = visibility[nd_off, c_start:c_end] * g_t[:, None]**-1    # New
+        if fband==None:
+            a1_true = visibility[nd_off, c_start:c_end] / g_t[:, None]    # New
+
+            # Formula
+            a1 = np.ma.array(visibility[nd_off, c_start:c_end], mask=mask) / g_t[:, None] / total_bg_models   # New
+            a2 = np.ma.mean(a1, axis=0)    # If using old==1, new==0
+            a3 = a2 / np.ma.mean(a2)
+
+            # #Getting the good channel list
+            ch_list = np.where(a3.mask==False)[0]
+
+            # Using RBF and getting the frequency bandpass
+            rbf = Rbf(frequency[c_start:c_end][ch_list], a3[ch_list], smooth=100)
+            freq_bandpass = rbf(frequency[c_start:c_end])
+            
+            gmap = g_t[:, None]/np.ma.mean(g_t)*freq_bandpass[None, :]*np.ma.max(g_nu)
+            temperature_tod = a1_true / freq_bandpass #* 1000 # Units mKelvin     [What did we do here????]
 
 
-        # Formula
-        # a1 = np.ma.array(visibility[nd_off, c_start:c_end], mask=mask) / gain_time_mean     # Old
-        a1 = np.ma.array(visibility[nd_off, c_start:c_end], mask=mask) * g_t[:, None]**-1 / total_bg_models   # New
-        a2 = np.ma.mean(a1, axis=0)    # If using old==1, new==0
-        a3 = a2 / np.ma.mean(a2)
+        else:
+            f_band = pickle.load(open(mask_loc+fname+'_frequency_bandpass_'+ant_name+'.p', 'rb'))   # Reading in the frequency bandpass
+            freq_bandpass = f_band[pol]
+            
+            gain_map_fill = g_t[:, None]/np.ma.mean(g_t)*freq_bandpass[None, :]*np.ma.max(g_nu)
 
-        # #Getting the good channel list
-        ch_list = np.where(a3.mask==False)[0]
+            temperature_tod = visibility[nd_off, c_start:c_end] / gain_map_fill
+            
+        if fband==None:
+            return temperature_tod, frequency[c_start:c_end], gmap, background_models, ch_list, a3
+        else:
+            return temperature_tod, frequency[c_start:c_end], gain_map_fill, background_models
 
-        # Using RBF and getting the frequency bandpass
-        rbf = Rbf(frequency[c_start:c_end][ch_list], a3[ch_list], smooth=100)
-        freq_bandpass = rbf(frequency[c_start:c_end])
-
-        temperature_tod = a1_true / freq_bandpass #* 1000 # Units mKelvin     [What did we do here????]
-
-        return temperature_tod, [frequency[c_start:c_end], freq_bandpass, ch_list], [a1_true, a1], [g_t, g_nu], background_models
 
     
-    def TOD(self, ant_no,  nd_off, c_start, mask_loc, frequency=None, frequency_choice=1500, c_end=-1):
+    def TOD(self, ant_no,  nd_off, c_start, mask_loc, frequency=None, frequency_choice=None, c_end=-1, fband=None):
         '''
         Takes the information from "gain,vis data" and combines the HH VV together for a given frequency range.
         gain, visibility - gain data & visibility data respectivly 
@@ -257,18 +291,28 @@ class Data_reduction:
         if frequency==None:
             frequency = self.freqs
 
-        temperature_hh, bpass_hh, vis_gnu_h, gains_h, bg_models_h = self.conversion_rW_mK(antenna=ant_no, pol='h',
-                                                                        nd_off=nd_off,frequency=frequency,
-                                                                        c_start=c_start, c_end=c_end, mask_loc=mask_loc)
+        if fband==None:
+            temperature_vv, frequency_v, gains_v, bg_models_v, clist_v, a3_v = self.conversion_rW_mK(antenna=ant_no, pol='v',
+                                                                            nd_off=nd_off,frequency=frequency,
+                                                                            c_start=c_start, c_end=c_end, mask_loc=mask_loc, fband=fband)
+            
+            temperature_hh,  frequency_h, gains_h, bg_models_h, clist_h, a3_h = self.conversion_rW_mK(antenna=ant_no, pol='h',
+                                                                            nd_off=nd_off,frequency=frequency,
+                                                                            c_start=c_start, c_end=c_end, mask_loc=mask_loc, fband=fband)
 
-        temperature_vv, bpass_vv, vis_gnu_v, gains_v, bg_models_v = self.conversion_rW_mK(antenna=ant_no, pol='v',
-                                                                        nd_off=nd_off,frequency=frequency,
-                                                                        c_start=c_start, c_end=c_end, mask_loc=mask_loc)
+
+        else:
+            temperature_hh, frequency_h, gains_h, bg_models_h = self.conversion_rW_mK(antenna=ant_no, pol='h',
+                                                                            nd_off=nd_off,frequency=frequency,
+                                                                            c_start=c_start, c_end=c_end, mask_loc=mask_loc, fband=fband)
+            
+            temperature_vv, frequency_v, gains_v, bg_models_v = self.conversion_rW_mK(antenna=ant_no, pol='v',
+                                                                            nd_off=nd_off,frequency=frequency,
+                                                                            c_start=c_start, c_end=c_end, mask_loc=mask_loc, fband=fband)
+            
+            
+            
         temperature_tod = ((temperature_hh)+(temperature_vv))/2
+          
 
-        freq_end = np.where(frequency[np.where(frequency > frequency_choice)[0][0]] == frequency[c_start:])[0][0]
-
-        temperature_tod = temperature_tod[:, 0:freq_end]   # Units now in [K]
-
-        return temperature_tod, [bpass_hh, bpass_vv], [temperature_hh, temperature_vv], [gains_h, gains_v], [bg_models_h[0], bg_models_v[0]], bg_models_h[4]
-
+        return temperature_tod, [gains_h, gains_v], [bg_models_h[0], bg_models_v[0]], bg_models_h[4]

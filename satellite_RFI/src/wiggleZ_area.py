@@ -1,6 +1,6 @@
 """
 Snippet of code is taken from Dr Jingying Wang's code
-- This file looks at obstaining the time, positioning, frequency band of th data for various situations.
+- This file looks at obtaining the time, positioning, frequency band of th data for various situations.
 - Noise diode pattern behaviour.
 - The outputs here will be used in the following sections.
 """
@@ -26,15 +26,20 @@ def area(fname, file_path):
     
         if fname in ['1551037708','1551055211', '1553966342','1554156377']:
             data = katdal.open('/idia/projects/hi_im/SCI-20180330-MS-01/'+fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
+        
         if fname in ['1555775533','1555793534', '1555861810', '1556034219', '1556052116', '1556120503', '1556138397','1555879611','1561650779']:
             data = katdal.open('/idia/projects/hi_im/SCI-20190418-MS-01/'+fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
+        
         if fname in['1558464584','1558472940']:
             data = katdal.open('/idia/projects/hi_im/COM-20190418-MS-01/'+fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
 
         if fname=='1562857793':
             #data = katdal.open('/idia/projects/hi_im/'+fname+'/'+fname+'/'+fname+'_sdp_l0.full.rdb')
-            data = katdal.open('/idia/projects/hi_im//1562857793/1562857793/1562857793_sdp_l0.full.rdb')
+            data = katdal.open('/idia/projects/hi_im/1562857793/1562857793/1562857793_sdp_l0.full.rdb')
             #data=katdal.open('https://archive-gw-1.kat.ac.za/1562857793/1562857793_sdp_l0.full.rdb', s3_endpoint_url='https://archive-gw-1.kat.ac.za', token='eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNTY5MjQ2NjYxLCJwcmVmaXgiOlsiMTU2Mjg1Nzc5MyJdLCJleHAiOjE1Njk4NTE0NjEsInN1YiI6ImRldiIsInNjb3BlcyI6WyJyZWFkIl19.AYQXK8B8O8o65295-w9UcoIJwu6s1eKdMH-B3dN0wWO_45rRTEM03tz4_DSPSrgypzQYGw_aB2Yi9vMdcHHLzg')
+        if fname=='1630519596':
+            data = katdal.open('https://archive-gw-1.kat.ac.za/1630519596/1630519596_sdp_l0.full.rdb?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJrYXQtYXJjaGl2ZS5rYXQuYWMuemEiLCJhdWQiOiJhcmNoaXZlLWd3LTEua2F0LmFjLnphIiwiaWF0IjoxNjMwNTk0Njc1LCJwcmVmaXgiOlsiMTYzMDUxOTU5NiJdLCJleHAiOjE2MzExOTk0NzUsInN1YiI6Im1ncnNhbnRvc0B1d2MuYWMuemEiLCJzY29wZXMiOlsicmVhZCJdfQ.dWfpPmRpQlL2ImO_a4TZ3sJ5LYNoAVFAoVKUYPn_RdgbApWJ9fKCadmAMyP1n4WcsEL99gfi2ZGvuiD9FoUCXQ')
+            
     #
         ant_num_used=len(data.ants)
         nd_set=float(fname)
@@ -146,13 +151,18 @@ def area(fname, file_path):
         n_times = timestamps[dp_ss]
         n_az = az[dp_ss]
         n_el = el[dp_ss]
+        n_ra = ra[dp_ss]
+        n_dec = dec[dp_ss]
+        
         n_freqs = data.freqs
     #   
-        saved = np.zeros((3, n_times.shape[0]))
+        saved = np.zeros((5, n_times.shape[0]))
     #
         saved[0] = n_times
         saved[1] = n_az
         saved[2] = n_el
+        saved[3] = n_ra
+        saved[4] = n_dec
         #saved = []
         #saved.append(n_times), saved.append(n_az), saved.append(n_el), saved.append(n_freqs), saved.append(timestamps) 
         
@@ -326,8 +336,8 @@ def area(fname, file_path):
                     break
                 nd_1aa.append(a)
                 l+=1
-        print 'nd_1aa len = '+str(l)
-        print nd_1aa==nd_1a
+        print ('nd_1aa len = '+str(l))
+        print (nd_1aa==nd_1a)
 
         nd_1bb=[]
         l=0
@@ -339,8 +349,8 @@ def area(fname, file_path):
                 max=i
                 nd_1bb.append(a)
                 l+=1
-        print 'nd_1bb len = '+str(l)
-        print nd_1bb==nd_1b
+        print ('nd_1bb len = '+str(l))
+        print (nd_1bb==nd_1b)
         
     ####
         
@@ -356,14 +366,14 @@ def area(fname, file_path):
         for i in range(len(timestamps)):
             if i not in nd_1:
                 nd_0.append(i)
-        print len(nd_0),len(nd_1)
+        print (len(nd_0),len(nd_1))
         assert(len(nd_0)+len(nd_1)==len(timestamps))
         
         nd_s0=[]
         for i in dp_ss:
             if i in nd_0:
                 nd_s0.append(i)
-        print np.shape(nd_s0)       
+        print (np.shape(nd_s0))
 
         nd_s1=[]
         nd_s1a=[]
@@ -375,13 +385,13 @@ def area(fname, file_path):
                 nd_s1a.append(i)
             if i in nd_1b:
                 nd_s1b.append(i)
-        print np.shape(nd_s1),np.shape(nd_s1a),np.shape(nd_s1b)
+        print (np.shape(nd_s1),np.shape(nd_s1a),np.shape(nd_s1b))
         
         nd_t0=[]
         for i in dp_tt:
             if i in nd_0:
                 nd_t0.append(i)
-        print np.shape(nd_t0)       
+        print (np.shape(nd_t0))
 
         nd_t1=[]
         nd_t1a=[]
@@ -393,7 +403,7 @@ def area(fname, file_path):
                 nd_t1a.append(i)
             if i in nd_1b:
                 nd_t1b.append(i)
-        print np.shape(nd_t1),np.shape(nd_t1a),np.shape(nd_t1b)
+        print (np.shape(nd_t1),np.shape(nd_t1a),np.shape(nd_t1b))
 
         ###
         # Saving the scan with noise diode off in file
@@ -405,6 +415,6 @@ def area(fname, file_path):
         saved[0], saved[1] = nd_s0, timestamps[nd_s0]
 
         np.save(file_path+fname+'_nd_S0', saved)   
-        print ('Noise Diode file conjured')
+        print ('Noise Diode file conjured')                                
     
     print ('Done')
