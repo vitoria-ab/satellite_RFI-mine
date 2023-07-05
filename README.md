@@ -38,7 +38,7 @@ Note: If you are using a terminal, do the above. If you are running via JupyterL
 4. pip install skyfield --user
 ```
 ```
-5.1 python2 setup.py install -user
+5.1 python2 setup.py install --user
 5.2 python3 setup.py install --user
 ```
 
