@@ -16,22 +16,23 @@ Stage 3:
 Simulating satellite signal and fitting to observational data [Notebbooks/Satellite_simulations].
 
 ### Note
-Currently the code runs a Py2 [Stage 1&2] / Py3 [Stage 3] hybrid. 
+Currently, the code runs a Py2 [Stage 1&2] / Py3 [Stage 3] hybrid. 
 Work on making it Py3 is still under construction for now.
 
 ## Requirements to run:
 In order to run all 3 stages you need access to the ILIFU cluster.
 
-### setup.py file:
+### setup.py file
 ```
 1. srun --pty bash
 ```
+Note: If you are using a terminal, do the above. If you are running via JupyterLab you can skip the step
 ```
-2.1 signularity shell /idia/software/containers/hi_im-python2.7.simg
+2.1 singularity shell /idia/software/containers/hi_im-python2.7.simg
 2.2 singularity shell /idia/software/containers/hi_im-py3.simg
 ```
 ```
-3. cd into satellite-RFI
+3. cd satellite_RFI
 ```
 ```
 4. pip install skyfield --user
