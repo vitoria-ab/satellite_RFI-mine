@@ -35,7 +35,8 @@ Note: If you are using a terminal, do the above. If you are running via JupyterL
 3. cd satellite_RFI
 ```
 ```
-4. pip install skyfield --user
+4.1 pip2 install skyfield --user
+4.2 pip3 install skyfield --user
 ```
 ```
 5.1 python2 setup.py install --user
