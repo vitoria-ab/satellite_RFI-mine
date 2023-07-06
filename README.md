@@ -23,14 +23,16 @@ Work on making it Py3 is still under construction for now.
 In order to run all 3 stages you need access to the ILIFU cluster.
 
 ### setup.py file
+Note: If you are using a terminal, do step 1. If you are running via JupyterLab terminal you can skip the step
 ```
 1. srun --pty bash
 ```
-Note: If you are using a terminal, do the above. If you are running via JupyterLab you can skip the step
+Next, activate a singularity shell. These steps must be for boh Py2.7 and Py3
 ```
 2.1 singularity shell /idia/software/containers/hi_im-python2.7.simg
 2.2 singularity shell /idia/software/containers/hi_im-py3.simg
 ```
+If already no within the git repo folder change directory to there
 ```
 3. cd satellite_RFI
 ```
@@ -42,15 +44,17 @@ Note: If you are using a terminal, do the above. If you are running via JupyterL
 5.1 python2 setup.py install --user
 5.2 python3 setup.py install --user
 ```
+Repeat process for Python 3 version as well
 
 ###  Set the container:
+If the container is not already in place on your home screen
 ```
 cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 ```
 
 
 ## Data location
-The observational data is stored currently at "hi_im/brandon/meerkat_gain_cali/<specific_folder_names>"
+The observational data is stored currently at "/idia/projects/hi_im/users/brandon/meerkat_gain_cali/<specific_folder_names>"
 
 
 For further questions contact: phD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com)
