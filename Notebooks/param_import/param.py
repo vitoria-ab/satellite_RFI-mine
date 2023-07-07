@@ -12,8 +12,8 @@ from imports import *
 file=1551055211
 
 ## LOCATION OF SAVED FILES
-data_save='/idia/projects/hi_im/brandon/meerkat_gain_cali/'+str(file)+'/'
-data_plot='/idia/projects/hi_im/brandon/meerkat_gain_cali/'+str(file)+'/figure/'
+data_save=str(file)+'/'
+data_plot=str(file)+'/figure/'
 
 ## FREQUENCY BOX SIZE
 fs=1000    # Starting
