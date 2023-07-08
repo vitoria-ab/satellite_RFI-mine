@@ -1,6 +1,7 @@
 NOTEBOOK FOR SATELLITE POSITION
 Contact: 
 Author: Brandon Engelbrecht; engelbechtbn@gmail.com
+Supervisor: Mario Santos
 Co-supervisor: Yi-Chao Li, Jose Fonseca
 
 Overivew:
@@ -36,5 +37,8 @@ Notebook exists to create manual information for observation, such as time, posi
 
 tle_satellite_cat.ipynb (redundant)
 Notebook exists to process the TLE information for the future users
+
+
+To be continued....
 
 
