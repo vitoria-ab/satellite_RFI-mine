@@ -309,6 +309,31 @@ def find_idx(data_array, data_variable):
     return idx
 
 
+############################# String Replacer ###################################
+
+def string_replacer(filePath, str_to_change, new_str):
+    '''
+    Function to locate and replace the strings with a new string
+    Paramters:
+        filePath - path the file
+        str_to_change - find the string
+        new_str - replacement string
+        Note that the new string should have "\n"
+    '''
+    
+    with open(filePath) as file:
+        fileContent=file.readlines()
+
+    for lineIndex in range(len(fileContent)):
+        if (str_to_change in fileContent[lineIndex]):
+            print (lineIndex)
+            fileContent[lineIndex]=new_str
+            with open(filePath, 'w') as tableFile:
+                tableFile.writelines(fileContent)
+
+            break
+
+
 ############################# Converting RA/DEC ----> Az/Alt ###################################
 
 # import numpy as np

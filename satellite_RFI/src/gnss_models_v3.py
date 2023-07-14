@@ -26,10 +26,10 @@ def signal_cosntant(x):
 
 #-------------------------------------------------------------_#
 
-def gnss_satellites(name_gnss, frequency_gnss, attenuation, sat_cat_data):
+def gnss_satellites(name_sat, frequency_gnss, attenuation, sat_cat_data):
 
     '''Returns the Spectral Energy Density of the GNSS and the Data file that we used as an input
-    name_gnss - Satellite name
+    name_sat - Satellite name
     frequency_gnss - Frequency list of satellites [MHz]
     excel_sat_info - The satellite excel cataloguen name in the s3 Notebook folder
     attenuation- the bandwidth and level of the drop
@@ -37,48 +37,8 @@ def gnss_satellites(name_gnss, frequency_gnss, attenuation, sat_cat_data):
     '''
     # Distances to the satellite constellations, taken from Springer Handbook pg 1234 
 
-    if name_gnss=='gps-ops':
-        name = 'GPS'
-
-    elif name_gnss=='glo-ops':
-        name = 'GLO'
-
-    elif name_gnss=='galileo':
-        name = 'GAL'
-
-    elif name_gnss=='beidou':
-        name = 'BDS'
-
-    elif name_gnss=='irnss':
-        name = 'IRNSS'
-
-    elif name_gnss=='qzs':
-        name = 'QZS'
-
-    elif name_gnss=='sbas':
-        name = 'SBAS'
-
-    else:
-        print ('Oop, issue with the name')
-        return -1
-
-#     if excel_loc==None:
-#         data = pd.read_csv(excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-#     else:
-#         data = pd.read_csv(excel_loc+excel_sat_info, header=0, engine='python')   # Excel data file with all the GNSS and models Table 2
-
-    # Re-ordering by frequency
-#         data = data.sort_values(by = 'Frequency[MHz]')
-#-----# Looking at all frequency below 1500 MHz
-
-#     data = data[data['Frequency[MHz]']< 1700]    # Line could come out
-#------# Changing the rate values
-#         data.loc[data['Rate(MHz)'] != 1.023, 'Rate(MHz)'] = 1.023
-
-
-
     # Extracting smaller data table for each name
-    data_sub = sat_cat_data[sat_cat_data['Sys'].str.contains(name)]
+    data_sub = sat_cat_data[sat_cat_data['Sys'].str.contains(name_sat)]
  
     # Making the Spectral Energy density list
     sed = []
@@ -192,7 +152,7 @@ def TOD_sats(name_tod, fname, frequency_tod, beam_model, attenuation, sat_cat_da
     '''
     
     # Calling the GNSS function above in order to obtain the PSD's for the constellation with the power from the satellites
-    sats_model, flux_density = gnss_satellites(name_gnss=name_tod, frequency_gnss=frequency_tod, attenuation=attenuation, sat_cat_data=sat_cat_data)   
+    sats_model, flux_density = gnss_satellites(name_sat=name_tod, frequency_gnss=frequency_tod, attenuation=attenuation, sat_cat_data=sat_cat_data)   
     
     # Comninging all the satellites that belong to a specific constellation together
     sats_model_t = np.sum(sats_model, axis=0)  

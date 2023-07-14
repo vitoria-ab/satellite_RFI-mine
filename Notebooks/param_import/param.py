@@ -146,7 +146,7 @@ chi_sigma=False
 
 ## -----------------------------------------------SATELLITE CATALOGUE
 # Path to satellite catalogue, currently displaying the full catalogue
-satellite_catalogue = '/users/bengelbrecht/PhD_Work/Satellite_Code/satellite_RFI-untangle/Notebooks/Satellite_Catalogue/table3B_satellite_v3-1_reduced_2_bw.csv'
+satellite_catalogue = '../Notebooks/Satellite_Catalogue/table3B_satellite_v3-1_reduced_2_bw.csv'
 
 ## -----------------------------------------------CONSTELLATIONS OF INTEREST
 # The constellations that we are interested in
