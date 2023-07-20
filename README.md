@@ -23,35 +23,43 @@ Work on making it Py3 is still under construction for now.
 In order to run all 3 stages you need access to the ILIFU cluster.
 
 ### setup.py file
-Note: If you are using a terminal, do step 1. If you are running via the JupyterLab terminal you can skip the step
+Note: If you are using a terminal, do step 1. If you are running via the JupyterLab terminal you can skip the step.
 ```
 1. srun --pty bash
 ```
-Next, activate a singularity shell. These steps must be for both Py2.7 and Py3
+Next, activate a singularity shell. These steps must be for both Py2.7 and Py3 (not simultaneously).
 ```
 2.1 singularity shell /idia/software/containers/hi_im-python2.7.simg
 2.2 singularity shell /idia/software/containers/hi_im-py3.simg
 ```
-If already no within the git repo folder change directory to there
+Change into the satellite_RFI directory if you are not already.
 ```
 3. cd satellite_RFI
 ```
+Installing the skyfield package.
 ```
 4.1 pip2 install skyfield --user
 4.2 pip3 install skyfield --user
 ```
-Note: There may be a permission issue with PY2, this can be seen on loading the package in the notebooks
+Note: There may be a permission issue with PY2, this can be seen on loading the package in the notebooks;
 Solution 1 (Calm): ```pip2 install --no-deps skyfield```
 Solution 2 (Crazy): ```pip2 install --force skyfield```
 If this problem arises in PY3 redo it appropriately.
+\\
+Install the sorting package natsort.
+```
+pip2 install natsort
+pip3 install natsort
+```
+Run the python installer.
 ```
 5.1 python2 setup.py install --user
 5.2 python3 setup.py install --user
 ```
-Repeat the process for Python 3 version as well
+Repeat the process for Python 3 version as well.
 
 ###  Set the container:
-If the container is not already in place on your home screen
+If the container is not already in place on your home screen, then do the following.
 ```
 cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 ```
@@ -61,4 +69,4 @@ cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 The observational data is stored currently at "/idia/projects/hi_im/users/brandon/meerkat_gain_cali/<specific_folder_names>"
 
 
-For further questions contact: phD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com)
+For further questions contact: PhD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com)
