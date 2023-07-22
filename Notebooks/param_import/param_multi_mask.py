@@ -8,8 +8,8 @@ from imports import *
 file = 1551055211
 
 ## Location of saved files and images
-data_save = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/"
-data_plot = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/figure/"
+data_save = str(file) + "/"
+data_plot = str(file) + "/figure/"
 
 ## Frequency box size
 fs = 1000  # Starting
@@ -59,7 +59,7 @@ mask_temperature = None
 ## Temporal mask [Seconds], eg: 1000, 1200 or however applicable
 mask_temporal = None, None
 ##Threshold pixel mask
-mask_pixel_timeline = 100
+mask_pixel_timeline = None
 ## Temporal averaging [Seconds], eg: 10, 20 or however applicable
 time_average = None
 
