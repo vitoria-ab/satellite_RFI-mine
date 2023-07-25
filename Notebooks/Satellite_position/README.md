@@ -1,18 +1,44 @@
-Stage 2 README file for the GNSS position and angular seperation of satellites
+NOTEBOOK FOR SATELLITE POSITION
+Contact: 
+Author: Brandon Engelbrecht; engelbechtbn@gmail.com
+Supervisor: Mario Santos
+Co-supervisor: Yi-Chao Li, Jose Fonseca
 
-See Jupyter Notebook: Satellite_position.ipynb
+Overivew:
 
-Note: A PDF will be constructed for further details in this section (Pending)
+This notebook works to plot the trajectory information of the GNSS (not limited to) satellites with respect to a point on Earth for instance 
+the MeerKAT telescope (not limited to). It utilizes the two-line-element information located in the <TLE/> folder. These should be as close to date of obsevation as possible and can start deteriating after a few weeks in accuracy.
 
-This notebook looks at the positioning of all GNSS satellites that was given (GPS (USA), GLONASS (RUS), etc....) as parameters. You can restrict
-the amount of satellites you wish to test. The Two-Line-Element (TLE) which contains the positioning of the satellites can be found at <https://www.celestrak.com/norad/elements/>. However this gives only the most recent snapshot, for observations done in the past we look here <https://web.archive.org/web/2019*/https://www.celestrak.com/NORAD/elements/geo.txt>. Simply change <geo> with the other satellite names (this can be seen on CelesTrack) and you will find all snapshots taken. We took the nearest snapshots to observation day also saw it does not matter if you take before or after observation day (Closest snapshot is prefered). 
+Notebooks:
 
-These snapshots can be found in TLE folder
+Satellite_position.ipynb (Main)
 
-Required files:
-- beam_model.py: Contains different beam choices, or different beams can be added to this file based on user preference. Default: Co-sine beam model 
-- check_satellite.py: Based on the satellites of choice and the positioning of MeerKAT pointings, this file outputs the 2D angular seperation maps.
-- satellite_extract.py: Since not all GNSS satellites are given, some fall under <geo.txt> such as IRNSS and QBZ therefor we extract these satellites. All that is required is the folder location containing the geo.txt TLE data.
+Requires information such as time, position and beam type as well.
+obs_time: User enters the date and time of observation with respect to UTC time format: YYYY MM DD hh mm ss
+nd_s: the scanning timestamps (can leave empty)
+nd_s: a list of the scan in seconds should be given here, this is added to the fname/obs_time and can be the scanning zone, in seconds or timestamp seconds
+frequency: a list of the frequency for the observation (f0, f1, f2....., fn) [Units MHz]
+fs,fe: The starting and ending point of the frequency [Units MHz]\n
+If None, will use the entire frequency band
+timestamps: can leave empty
+telescopeLon/Lat The longitude and latitude of the telescope position
+nd_s0_coords: a tuple of (AZ_list, ALT_list), these should be of equal size and equal to the length of nd_s0
+data_save: location to save the data
+tle_location: location of the TLE satellite inforamtion for the observation
+sats_type: the different satellite constellations for the satellites: name variable should correspond to the file name xxx.txt
+tle_data_sort: Given the format of the TLE from the website, the data needs to be processed first. None to do nothing
 
-For any questions pertaining to these 3 files or notebook, please contact Brandon Engelbrecht or Dr Yi-Chao Li.
+Auxilary Notebooks:
+Satellite_downloader.ipynb (redundant)
+Notebook exists to download current TLE information for the day and then process it into useful information
+
+Satellite_info.ipynb
+Notebook exists to create manual information for observation, such as time, position and so on.
+
+tle_satellite_cat.ipynb (redundant)
+Notebook exists to process the TLE information for the future users
+
+
+To be continued....
+
 

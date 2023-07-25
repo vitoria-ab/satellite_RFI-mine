@@ -2,8 +2,8 @@
 
 echo "Running test"
 
-filename=1551037708
-folder_name="sat_3"
+filename=
+folder_name=
 # Values or inputs
 # mask_type=(None "degree" "temporal" "thermal")
 mask_type=("temporal")

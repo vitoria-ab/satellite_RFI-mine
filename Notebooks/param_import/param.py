@@ -12,8 +12,8 @@ from imports import *
 file=1551055211
 
 ## LOCATION OF SAVED FILES
-data_save='/idia/projects/hi_im/brandon/meerkat_gain_cali/'+str(file)+'/'
-data_plot='/idia/projects/hi_im/brandon/meerkat_gain_cali/'+str(file)+'/figure/'
+data_save=str(file)+'/'
+data_plot=str(file)+'/figure/'
 
 ## FREQUENCY BOX SIZE
 fs=1000    # Starting
@@ -146,7 +146,7 @@ chi_sigma=False
 
 ## -----------------------------------------------SATELLITE CATALOGUE
 # Path to satellite catalogue, currently displaying the full catalogue
-satellite_catalogue = '/users/bengelbrecht/PhD_Work/Satellite_Code/satellite_RFI-untangle/Notebooks/Satellite_Catalogue/table3B_satellite_v3-1_reduced_2_bw.csv'
+satellite_catalogue = '../Notebooks/Satellite_Catalogue/table3B_satellite_v3-1_reduced_2_bw.csv'
 
 ## -----------------------------------------------CONSTELLATIONS OF INTEREST
 # The constellations that we are interested in

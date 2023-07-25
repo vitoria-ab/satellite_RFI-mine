@@ -1,17 +1,12 @@
-Stage 1 README file for the reCalibration_Data code 
+NOTEBOOK FOR GENERATING CALIBRATED DATA BACKGROUND MODEL
+Contact: 
+Author: Brandon Engelbrecht; engelbechtbn@gmail.com
+Supervisor: Mario Santos
+Co-supervisor: Jingying Wang, Jose Fonseca
 
-See Jupyter Notebook: Generating_Calibrated_Data_BGM.ipynb
-
-Note: A PDF will be constructed for further details in this section (Pending)
-
-Essentially this section looks at the work done by Dr. Jingying Wang for the MeerKLASS pilot pilot survey. The outputs from this work becomes our input. This section looks at a pseudo re-calibration process of the data in order to maintain the RFI zones around 1000-1500 MHz which is masked out in the original data.
-
-The code mianly requires the katdal software which is contained within the HI_IM PY2 containter to run succesfully on ILIFU.
-OR
-Data is stored here: /idia/projects/hi_im/brandon
-
-All data is on ILIFU for the inputs and therefore all paths are focused on the data path above. 
-NOTE that the data requires user access. If so speak to Prof. Mario Santos for access to <hi_im> folder
+Overview:
+This notebook looks at re-calibrating and inserting the missing RFI information in the gain and raw visibilitiy maps for the 2019 observation
+and found in HI intensity mapping with MeerKAT: Calibration pipeline for multi-dish autocorrelation observations: https://arxiv.org/abs/2011.13789
 
 Required Files:
 wiggleZ_area.py - 
@@ -22,5 +17,29 @@ data_reduction.py -
 - A class which extracts various componants of the data
 - Requires file name <fname> (see notebook)
     
-Information is commented into the files and folder.
-The notebook "Generating_Calibrated_Data_BGM.ipynb" should be run.
+Notebooks:
+Generating_Calibrated_Data_BGM_play.ipynb
+
+The notebook revolves around extracting necessary information for example: Positional, Temporal and Frequency information. The information is cut only from 1000-1500 MHz. 
+    
+The raw visibilities, gain and background model
+Background model:
+    Receiver, Elevation, Galactic
+    The receiver temperature is missing information and requires a radial bases function fitting in order to fill that in.
+    
+    Elevation 
+    Requires re-running a code of Jingying Wang and filling in that information
+    All the information is stored at an open location
+    
+    Galactic
+    Does not require changes
+    
+Gain calculation:
+    A comparison is done between the raw visibility and gain information.
+    Gain calculation is done on overlay
+    
+    
+    
+To be continued.........
+    
+
