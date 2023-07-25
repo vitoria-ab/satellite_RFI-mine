@@ -4,7 +4,7 @@ echo "Running mixed test"
 ## ============================================================================================##
 ## PARAMETERS
 filename=1551055211
-folder_name="sat_3"
+folder_name="sat_12"
 degrees=
 thermals=
 time_starts=

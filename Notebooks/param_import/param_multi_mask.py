@@ -8,8 +8,8 @@ from imports import *
 file = 1551055211
 
 ## Location of saved files and images
-data_save = str(file) + "/"
-data_plot = str(file) + "/figure/"
+data_save = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/"
+data_plot = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/figure/"
 
 ## Frequency box size
 fs = 1000  # Starting
@@ -40,7 +40,7 @@ satellite_catalogue = (
 )
 
 ## Chi Square output folder
-folder = "sat_3"
+folder = "sat_12"
 folder = folder + "/"
 ## Chi Square suffix
 save_suffix = "v1"
@@ -117,6 +117,16 @@ observation_2021 = [
     "1631818149",
     "1634835083",
 ]
+
+## CREATING FILE FOLDER PATHS
+if os.path.exists(data_save)==False:
+    print ("Data Path does not exist, creating")
+    os.mkdir(data_save)
+    os.mkdir(data_plot)
+
+else:
+    print ("Data Path exists")
+    
 
 
 ## TEMPORAL AND FREQUENCY INFORMATION STORED FROM KATDAL

@@ -1,6 +1,7 @@
 ##====================================================================================================================================##
 ## PARAMETERS AND IMPORTS
 import sys
+sys.path.insert(0, '../../param_import/')
 from imports import *
 import param_multi_mask as pm
 
