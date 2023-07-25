@@ -7,10 +7,3 @@ Notebooks/BusyWeek/
 Notebooks/Testing/
 build/
 dist/
-Notebooks/param_import/param.py
-Notebooks/MKAT_recalibration/Generating_Calibrated_Data_BGM.ipynb
-Notebooks/chi2_testing/chi2_py_files/full_loop_file.sh
-Notebooks/chi2_testing/chi2_py_files/multi_run.sh
-Notebooks/chi2_testing/chi2_py_files/running_test_casefor_py.ipynb
-Notebooks/chi2_testing/chi2_py_files/sat_optimization.py
-Notebooks/chi2_testing/chi2_notebooks/final_all_test.ipynb
