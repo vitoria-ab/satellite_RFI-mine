@@ -14,6 +14,7 @@ import glob
 import requests
 import os
 import numpy as np
+import unicodedata as udata
 
 # --------------------------------------------------------------------------
 
@@ -232,6 +233,58 @@ def path_exists(path):
 
     return
 
+# --------------------------------------------------------------------------
+
+############################# TLE satellite renaming ###################################
+
+# Function: Given the list of satellites will be able to produce the relevant names
+
+def renaming_satellite_names(sat_name_in):
+    '''
+    Function designied to take in the satellite names
+    from the TLE information and change from unicode str
+    to normal str. It also adjut the -- issue.
+
+    Parameters:
+        sat_name_in - name of satellite in unicode or incorrect
+                      str format.
+    Output:
+        Adjusted string output
+    '''
+    # Removes the unicode string making it only string
+    if type(sat_name_in) == np.unicode_:
+        sat_name_str = udata.normalize(
+            "NFKD", sat_name_in
+        ).encode(
+            "ascii", "ignore"
+        )
+
+    else:
+        sat_name_str = sat_name_in
+
+    # Looking at removing the excess --
+    if "--" in sat_name_str:
+        # Splitting the str using -- as the delimeter
+        sat_name_dash = sat_name_str.split('--')
+        if sat_name_dash[-1] == '-':
+            # Replacing the last dash with nothing
+            sat_name_dash[-1] = ''
+            # In case there is no -( will check and insert one, 
+            # this is because of the -- will get removed in --
+            for ti, text in enumerate(sat_name_dash):
+                if '(' in text and '-(' not in text:
+                    sat_name_dash[ti] = text.replace('(', '-(')
+            # Join the list of str together
+            sat_name_dash = ''.join(sat_name_dash)
+
+        else:
+            sat_name_dash = ''.join(sat_name_dash)
+    # In case there -- is not in the data
+    else:
+        sat_name_dash = sat_name_str
+        
+    
+    return sat_name_dash
 
 # --------------------------------------------------------------------------
 

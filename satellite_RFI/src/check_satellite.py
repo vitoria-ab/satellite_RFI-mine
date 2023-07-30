@@ -392,8 +392,16 @@ class Satellite_Catalogue(object):
             ] = stand_in  # Overwriting the distance information from 3d obj. to 2d obj.
 
         self.coord_list = [coord_sats_total]
-        self.name_list = name_list_total  # Holds naming information for the individual satellites that remain
-        self.distance_list = distance_list  # Note the mask used in coord_list should be applied here, but we assuming the mask will work further down
+        # Holds naming information for the individual satellites that remain
+        self.name_list = name_list_total  
+        # All the constellation names - adjusting and collectng individual satellite names
+        self.satellite_name_list = [np.array([tools.renaming_satellite_names(sat_name_in = sat_name) 
+                                          # Looping through each satellite within the constellations
+                                          for sat_name in sat_cons]) 
+                                # Looping through the different cosntellations   
+                                for sat_cons in name_list_total[0]]
+        # Note the mask used in coord_list should be applied here, but we assuming the mask will work further down
+        self.distance_list = distance_list  
 
     def itersats_temperature(self, pointings, beam_func=None, close_angle=None):
 
