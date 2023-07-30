@@ -18,6 +18,7 @@ import matplotlib.dates as mdates
 import multiprocessing as mp
 from multiprocessing import Pool
 from functools import partial
+from satellite_RFI.src import tools
 
 import time
 
