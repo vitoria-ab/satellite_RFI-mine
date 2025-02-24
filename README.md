@@ -66,7 +66,7 @@ cp -r hi_sats_container ~/.local/share/jupyter/kernels/
 
 
 ## Data location
-The observational data is stored currently at "/idia/projects/hi_im/users/brandon/meerkat_gain_cali/<specific_folder_names>"
-
+The observational data is stored currently at "/idia/projects/hi_im/satellite_rfi/Testing<specific_observation_folder_names>"
+The results applied in the paper publication is locate at: "/idia/projects/hi_im/satellite_rfi/Testing<specific_observation_folder_names>/<test_results_sat_xxx>"
 
 For further questions contact: PhD candidate: Brandon Engelbrecht (engelbrechtbn@gmail.com)
