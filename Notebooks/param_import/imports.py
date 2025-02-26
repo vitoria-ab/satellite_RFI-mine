@@ -20,18 +20,7 @@ from scipy.interpolate import Rbf as Rbf
 ##---------------------------Panda------------------------
 import pandas as pd
 
-##---------------------------Satellite Python Files------------------------
-from satellite_RFI.src import check_satellite as cs        
-from satellite_RFI.src import beam_model as bm
-from satellite_RFI.src import rewrite_tle
-from satellite_RFI.src import satellite_extract
-from satellite_RFI.src.satellite_sims import satellite_sim as ss
-# from satellite_RFI.src import tle_sat_download as tsd
-from satellite_RFI.src import psd_models_v2 as psd
-from satellite_RFI.src import tools
-from satellite_RFI.src import attenuation_function as af
-
-#---------------------------Astropy------------------------
+##---------------------------Astropy------------------------
 from astropy.time import Time
 import astropy.units as u
 import astropy.constants as cc

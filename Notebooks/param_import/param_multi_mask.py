@@ -8,8 +8,8 @@ from imports import *
 file = 1551055211
 
 ## Location of saved files and images
-data_save = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/"
-data_plot = "/idia/projects/hi_im/brandon/meerkat_gain_cali/" + str(file) + "/figure/"
+data_save = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(file)+'/'
+data_plot = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(file)+'/'
 
 ## Frequency box size
 fs = 1000  # Starting
