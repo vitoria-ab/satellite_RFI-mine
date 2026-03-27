@@ -1,15 +1,12 @@
 from imports import *
 
-##====================================================================================================================================##
-## General Parameter Information
-##====================================================================================================================================##
-
 ## Filename
 file = 1551055211
 
 ## Location of saved files and images
 data_save = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(file)+'/'
 data_plot = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(file)+'/'
+filename = "/users/bvitoria/workspace/brandon_NEW_nomask_C1"
 
 ## Frequency box size
 fs = 1000  # Starting
@@ -32,18 +29,15 @@ satellite_type = ["gps-ops", "glo-ops", "galileo", "beidou", "irnss", "sbas", "q
 ## Beam model
 ## Options available: 'emss', 'cosine', etc.....
 ## Check python file beam_models.py in src folder
-beam_model = "emss"
+beam_model = "emss"  # <-- USED
 
 ## Satellite catalogue
-satellite_catalogue = (
-    "../../Satellite_Catalogue/satellite_constellation_catalog.csv"
-)
+path_catalog = ("/Satellite_Catalogue/satellite_constellation_catalog.csv")  # <-- USED
 
 ## Chi Square output folder
-folder = "sat_12"
-folder = folder + "/"
+folder = "sat_12" + "/"
 ## Chi Square suffix
-save_suffix = "v1"
+save_suffix = "iara"
 
 ## Sub Frequency Slice
 ## If fs and fe is set to None, will return the edges of the frequency range
@@ -68,7 +62,7 @@ time_average = None
 chi_sigma = True
 
 ## Dampening fucntion
-## Set to None or "goob" (gaussian out-of-band, see )
+## Set to None or "gaussian" (gaussian out-of-band, see )
 dampner = None
 # If dampner is not None,
 # Dampner_sigma can None which results in a random Chi-sigma values
@@ -142,11 +136,11 @@ if os.path.isfile(data_save + str(file) + "_katdal_info.p") == True:
         )
 
     info = [katdal_info[i] for i in katdal_info.keys()]
-    nd_s0 = katdal_info["nd_s0"]
+    nd_s0 = katdal_info["nd_s0"]  # <-- USED
     nd_s0_coords = katdal_info["nd_s0_coords"]
     nd_s0_coords2 = katdal_info["nd_s0_coords2"]
     nd_s0_pos = katdal_info["nd_s0_pos"]
-    frequency = katdal_info["frequency"]
+    frequency = katdal_info["frequency"]  # <-- USED
 
 else:
     print("Katdal information does not exist, manual implementation required")
@@ -170,203 +164,69 @@ if tle_data_sort is True:
 """
 =====================================================CHI SQUARE FITTING=====================================================
 """
-## No mask
-if (
-    mask_degree is None
-    and mask_temperature is None
-    and mask_temporal[0] is None
-    and mask_temporal[1] is None
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: None"
-    else:
-        mask_type = (
-            "Masking: None and Temporal Averaging of " + str(time_average) + " seconds"
-        )
-    nearby_constellations = None
-    ts_slice, te_slice = None, None
 
-## Angular only
-elif (
-    mask_temperature is None 
-    and mask_temporal[0] is None and 
-    mask_temporal[1] is None
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Angular"
-    else:
-        mask_type = (
-            "Masking: Angular and Temporal. Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = (
-        data_save
-        + "nearby_satellites/nearby_satellite_close_angle_"
-        + mask_degree
-        + ".p"
-    )
-    ts_slice, te_slice = None, None
+print("Importing masking parameters...")
 
+# putting together all parameters
+masks = np.array([mask_degree,mask_temperature,mask_temporal[0],mask_temporal[1],mask_pixel_timeline])
+indexes = np.where(masks!=None)[0]
 
-## Temperature only
-elif (
-    mask_degree is None 
-    and mask_temporal[0] is None 
-    and mask_temporal[1] is None
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Thermal"
-    else:
-        mask_type = (
-            "Masking: Thermal and Temporal. Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = None
-    ts_slice, te_slice = None, None
+# some things that can be defined beforehand
+ts_slice, te_slice = mask_temporal
+if mask_degree==None:  nearby_constellations = None
+else:  nearby_constellations = data_save + "nearby_satellites/nearby_satellite_close_angle_" + mask_degree + ".p"
 
+# -- no mask
+if indexes.size==0:  
+    mask_name = "no-mask_"
+    mask_type = "Masking: None."
 
-## Temporal only
-elif (
-    mask_degree is None
-    and mask_temperature is None
-    and (mask_temporal[0] is not None or mask_temporal[1] is not None)
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Temporal"
-    else:
-        mask_type = (
-            "Masking: Temporal and Temporal. Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = None
-    ts_slice, te_slice = mask_temporal[0], mask_temporal[1]
+# -- angular
+elif np.array_equal(indexes,[0]):  
+    mask_name = "degree-" + str(masks[0]) + "_"
+    mask_type = "Masking: Angular."
+
+# -- thermal
+elif np.array_equal(indexes,[1]):   
+    mask_name = "thermal-" + str(masks[1]) + "_"
+    mask_type = "Masking: Thermal."
+
+# -- temporal
+elif np.array_equal(indexes,[2,3]) or np.array_equal(indexes,[2]) or np.array_equal(indexes,[3]):  
+    mask_name = "temporal_"
+    mask_type = "Masking: Temporal."
+
+# -- timeline pixel
+elif np.array_equal(indexes,[4]):  
+    mask_name = "pix_timeline_" + str(masks[4]) + "_"
+    mask_type = "Masking: Pixel timeline."
+
+# -- angular and thermal
+elif np.array_equal(indexes,[0,1]):  
+    mask_name = "degree-" + str(masks[0]) + "_thermal-" + str(masks[1]) + "_"
+    mask_type = "Masking: Angular and Thermal."
+
+# -- angular and temporal
+elif np.array_equal(indexes,[0,2,3]):  
+    mask_name = "degree-" + str(masks[0]) + "_temporal_"
+    mask_type = "Masking: Angular and Temporal."
+
+# -- thermal and temporal
+elif np.array_equal(indexes,[1,2,3]):  
+    mask_name = "thermal-" + str(masks[1]) + "_temporal_"
+    mask_type = "Masking: Thermal and Temporal."
+
+# angular, thermal and temporal
+elif np.array_equal(indexes,[0,1,2,3]):  
+    mask_name = "degree-" + str(masks[0]) + "_thermal-" + str(masks[1]) + "_temporal_"
+    mask_type= "Masking: Angular, Thermal and Temporal."
     
-    
-## Timeline pixel only
-elif (
-    mask_degree is None 
-    and mask_temperature is None
-    and mask_temporal[0] is None 
-    and mask_temporal[1] is None
-    and mask_pixel_timeline is not None
-):
-    if time_average is None:
-        mask_type = "Masking: Pixel timeline"
-    else:
-        mask_type = (
-            "Masking: Pixel timeline and Temporal. Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = None
-    ts_slice, te_slice = None, None
-
-
-## Angular+Thermal
-elif (
-    mask_degree is not None
-    and mask_temperature is not None
-    and mask_temporal[0] is None
-    and mask_temporal[1] is None
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Angular and Thermal"
-    else:
-        mask_type = (
-            "Masking: Angular and Thermal. Temporal Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = (
-        data_save
-        + "nearby_satellites/nearby_satellite_close_angle_"
-        + mask_degree
-        + ".p"
-    )
-    ts_slice, te_slice = mask_temporal[0], mask_temporal[1]
-
-
-## Angular+Temporal
-elif (
-    mask_degree is not None
-    and mask_temperature is None
-    and (mask_temporal[0] is not None or mask_temporal[1] is not None)
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Angular and Temporal"
-    else:
-        mask_type = (
-            "Masking: Angular and Temporal and Temporal Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = (
-        data_save
-        + "nearby_satellites/nearby_satellite_close_angle_"
-        + mask_degree
-        + ".p"
-    )
-    ts_slice, te_slice = mask_temporal[0], mask_temporal[1]
-
-
-## Thermal+Temporal
-elif (
-    mask_degree is None
-    and mask_temperature is not None
-    and (mask_temporal[0] is not None or mask_temporal[1] is not None)
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Thermal and Temporal"
-    else:
-        mask_type = (
-            "Masking: Thermal and Temporal and Temporal Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = None
-    ts_slice, te_slice = mask_temporal[0], mask_temporal[1]
-
-
-## Angular+Thermal+Temporal
-elif (
-    mask_degree is not None
-    and mask_temperature is not None
-    and (mask_temporal[0] is not None or mask_temporal[1] is not None)
-    and mask_pixel_timeline is None
-):
-    if time_average is None:
-        mask_type = "Masking: Angular, Thermal and Temporal"
-    else:
-        mask_type = (
-            "Masking: Angular, Thermal and Temporal and Temporal Averaging of "
-            + str(time_average)
-            + " seconds"
-        )
-    nearby_constellations = (
-        data_save
-        + "nearby_satellites/nearby_satellite_close_angle_"
-        + mask_degree
-        + ".p"
-    )
-    ts_slice, te_slice = mask_temporal[0], mask_temporal[1]
-
-## Unknown Mask
-else:
-    mask_type = "Masking permutation not available"
+else:  
+    mask_type = "Masking: Permutation not available!"
 
 
 ## Number of constellations that remain after the removal
-constellations_remain = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'sbas']
+constellations_remain = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'sbas']  # <-- USED
 
 ## Active Frequecny signals
 ## Amount of active signals that relate to number of alpha parameters [Must make this automatic]
@@ -374,4 +234,4 @@ no_signals = 21
 
 ## Constellation bias factor
 ## Changes the general amplitude of constellation power [Obsolete]
-bias = np.ones(len(constellations_remain))
+bias = np.ones(len(constellations_remain))  # <-- USED

@@ -1,139 +1,143 @@
+###################################################
+# FILE: beam_model = beam_model(old); TO REWRITE!!
+# Functions for the beam model of the satellites
+#   - _get_Khans = _Khans_beam_model(old)
+#   - Khans_beam_model
+#   - REMOVED = get_OmegaA_from_Khans_beam(old)
+#   - REMOVED = get_fwhm_from_Khans_beam(old)
+#   - REMOVED = get_factor_from_Khans_beam(old)
+#   - Cosine_beam_model
+#   - unsorted_interp2d
+#   - emss_beam
+#   - khan_emss_beam
+#   - khan_emss_beam_model
+###################################################
+
+
+## ----- IMPORTS ----- ##
 import numpy as np
 from astropy.io import fits
 from scipy.interpolate import interp1d, interp2d
 import pickle
 
-# ----------------------------------------------------------------------------------------------------
 
+## ----- FUNCTIONS FOR KHAN'S BEAM MODEL ----- ##
+# - _GET_KHANS
+def _get_Khans(phi=None):
+    ''' Recover Khan's beam model from the file for a given polarization (internal function).
+    
+    Parameters
+    ----------
+    phi : string or None
+        Polarization; for None it averages the behavior on both polarizations
+        (options: None, "HH", or "VV").
+    
+    Returns
+    -------
+    beam_mean : 2-d array of floats
+        The beam model averaged on the central cut.
+    _freq : array of floats
+        Frequency array, between 800 and 1720.
+    _theta : array of floats
+        Angle array, between -5 and 5.
+    '''
 
-def _Khans_beam_model(phi=None):
-
+    # getting beam model
     beam_path = "/idia/users/ycli/meerkat_beam/"
     beam_file = "primary_beam_mh_184channels_10deg_re.fits"
+    beam_data = fits.getdata(beam_path+beam_file)
 
-    with fits.open(beam_path + beam_file) as hdul:
-        beam_data = hdul[0].data
-
+    # defining frequencies and angles
     _theta = np.linspace(-5, 5, 256, dtype="float32")
     _freq = np.arange(800, 1720, 5, dtype="float32")
 
+    # getting relevant quantities
+    mid_idx = beam_data.shape[-1] // 2
+    HH = beam_data[:,0,0,:,:]
+    VV = beam_data[:,1,1,:,:]
+
+    # calculating for each polarization option
     if phi is None:
-        beam_profile = beam_data[:, 0, 0, ...] ** 2 + beam_data[:, 1, 1, ...] ** 2
-        beam_profile /= 2.0
-
-        mid_idx = beam_profile.shape[1] / 2
-        beam_HH = beam_profile[:, :, mid_idx]
-        beam_VV = beam_profile[:, mid_idx, :]
-        beam_mean = 0.5 * (beam_HH + beam_VV)
-    elif phi == "HH":
-        beam_profile = beam_data[:, 0, 0, ...] ** 2
-        mid_idx = beam_profile.shape[1] / 2
-        beam_HH = beam_profile[:, :, mid_idx]
-        # beam_HH = beam_profile[:, mid_idx, :]
-        beam_mean = beam_HH
-    elif phi == "VV":
-        beam_profile = beam_data[:, 1, 1, ...] ** 2
-        mid_idx = beam_profile.shape[1] / 2
-        beam_VV = beam_profile[:, mid_idx, :]
-        beam_mean = beam_VV
-
+        beam_HH = (HH[:,:,mid_idx]**2 + VV[:,:,mid_idx]**2) / 2
+        beam_VV = (HH[:,mid_idx,:]**2 + VV[:,mid_idx,:]**2) / 2
+        beam_mean = (beam_HH+beam_VV) / 2
+    elif phi=="HH":
+        beam_mean = HH[:,:,mid_idx]**2
+    elif phi=="VV":
+        beam_mean = VV[:,mid_idx,:]**2
+        
     beam_mean = beam_mean.astype("float32")
-
     return beam_mean, _freq, _theta
 
-    # if axis == 1:
-    #    beam_intf  = interp1d(_theta, beam_mean, axis=1,bounds_error=False, fill_value=0)
-    #    return beam_intf, _freq
 
-    # elif axis == 0:
-    #    beam_intf  = interp1d(_freq, beam_mean, axis=0,bounds_error=False, fill_value=0)
-    #    return beam_intf, _theta
-
-
+# - KHANS_BEAM_MODEL
 def Khans_beam_model(freq=None, theta=None):
+    ''' Returns Khan's beam model interpolated as a 2d or 1d function.
+    
+    Parameters
+    ----------
+    freq : array of floats (optional)
+        If not None, frequency on which to interpolate.
+    theta : array of floats (optional)
+        If not None, angle on which to interpolate.
 
-    beam_mean, _freq, _theta = _Khans_beam_model()
+    Returns
+    -------
+    beam_func : array of 1d or 2d funcs
+        Functions that computes the beam model as a function of frequency
+        or angle or both.
+    '''
 
+    beam_mean, _freq, _theta = _get_Khans()
     beam_func = interp2d(_theta, _freq, beam_mean)
-
     kwargs = {"bounds_error": False, "fill_value": 0}
 
     if freq is not None:
-        _beam_func = interp1d(
-            _theta, beam_func(_theta, freq).astype("float32"), axis=1, **kwargs
-        )
+        _beam_func = interp1d(_theta, beam_func(_theta, freq).astype("float32"), axis=1, **kwargs)
         return lambda x: _beam_func(x)
     elif theta is not None:
-        _beam_func = interp1d(
-            _freq, beam_func(theta, _freq).astype("float32"), axis=0, **kwargs
-        )
+        _beam_func = interp1d(_freq, beam_func(theta, _freq).astype("float32"), axis=0, **kwargs)
         return lambda x: _beam_func(x)
     else:
         return beam_func
 
 
-def get_OmegaA_from_Khans_beam(freq, threshold=0.0):
+## ----- FUNCTIONS FOR COSINE BEAM MODEL ----- ##
+# - COSINE_BEAM_MODEL
+def Cosine_beam_model(freq, dish_diameter=13.5):
+    ''' Returns cosine beam model, for a given frequency (in MHz).
+    
+    Parameters
+    ----------
+    freq : array of floats
+        Frequency range.
+    dish_diameter : float (optional)
+        Diameter of telescope dish in m (default is 13.5m for MEERKAT).
 
-    beamf, _freq = Khans_beam_model()
-    d_theta = 0.01
-    theta = np.arange(0, 5, d_theta)
-    p = beamf(theta)
-    p[p < threshold] = 0.0
-    theta *= np.pi / 180.0
-    d_theta *= np.pi / 180.0
-    omega_a = 2.0 * np.pi * np.sum(p * np.sin(theta)[None, :] * d_theta, axis=1)
-    omega_a_f = interp1d(_freq, omega_a)
+    Returns
+    -------
+    cos_beam : array of funcs
+        Cosine beam models for an array of frequencies.
+    '''
 
-    return omega_a_f(freq)
-
-
-def get_fwhm_from_Khans_beam(freq):
-
-    beam, _t = Khans_beam_model(axis=0)
-    _freq = np.arange(800, 1720, 10)
-    width = lambda x, f: interp1d(beam(f)[128:], _t[128:])(x)
-    _fwhm = []
-    for _f in _freq:
-        _fwhm.append(width(0.5, _f))
-    _fwhm = np.array(_fwhm)
-
-    return interp1d(_freq, _fwhm)(freq) * 2.0
-
-
-def get_factor_from_Khans_beam(freq, angle=0.5, phi=None):
-
-    beam_intf, _freq = Khans_beam_model(phi=phi)
-
-    factor = interp1d(_freq, beam_intf(angle))
-
-    return factor(freq)
-
-
-# ----------------------------------------------------------------------------------------------------
-
-
-def Cosine_beam_model(freq):
-
-    speed_of_light = 299792458  # speed of light in m/s
-    lamb = speed_of_light / freq / 1.0e6  # wavelength in m
-    dish_diameter = 13.5  # diameter of telescope dish in meters (m)
+    # getting quantities in SI
+    c = 299792458  # speed of light in m/s
+    lamb = c / (freq*1.0e6)  # wavelength in m
     fwhm = 1.16 * np.degrees(lamb / dish_diameter)  # FWHM in degrees
-
     fwhm = fwhm[:, None, None]
 
+    # calculating model
     A = 1.189
     B = 4
-    return (
-        lambda x: (
-            np.cos(A * np.pi * x[None, ...] / fwhm)
-            / (1 - B * (A * x[None, ...] / fwhm) ** 2)
-        )
-        ** 2
-    )
+    def cos_beam(x):
+        term1 = np.cos(A * np.pi * x[None,...] / fwhm)
+        term2 = 1 - B * (A * x[None,...] / fwhm)**2
+        return (term1/term2)**2
+    
+    return cos_beam
 
 
-# ----------------------------------------------------------------------------------------------------
-
+## ----- FUNCTIONS FOR EMSS BEAM MODEL ----- ##
 
 class unsorted_interp2d(interp2d):
     """
@@ -145,31 +149,23 @@ class unsorted_interp2d(interp2d):
         return interp2d.__call__(self, x, y, dx=dx, dy=dy)[:, unsorted_idxs]
 
 
-# ----------------------------------------------------------------------------------------------------
-
-
+# - EMSS_BEAM
 def emss_beam(freq, theta):
     """
     Using the EMSS beam function, an interpolation that takes in:
     frequency - range 900-1670MHz
     theta - range 0-100
     """
-    ##--------------------------------------------------------------------##
-    # Collecting and reading in the data
-    beam = pickle.load(
-        open("/idia/projects/hi_im/MeerKAT_beams/v4/MK_Lband_1D_Beam_data", "rb")
-    )
-
+    
+    # collecting and reading in the data
+    beam = pickle.load(open("/idia/projects/hi_im/MeerKAT_beams/v4/MK_Lband_1D_Beam_data", "rb"))
     f = beam["freq"]
     Pv = beam["P_v_th"]
     Ph = beam["P_h_th"]
     th = beam["th"]
 
-    Pv_centered = np.array([Pv[i, :] / np.max(Pv[i, :]) for i in range(Pv.shape[0])])
-    Ph_centered = np.array([Ph[i, :] / np.max(Ph[i, :]) for i in range(Ph.shape[0])])
-
-    P_centered = (Pv_centered + Ph_centered) / 2
-    # Interpolatiion function
+    # getting interpolated function    
+    P_centered = ( Pv/np.max(Pv,axis=1)[:,np.newaxis] + Ph/np.max(Ph,axis=1)[:,np.newaxis] ) / 2
     P_interp = unsorted_interp2d(th, f, P_centered, kind="cubic")
     ##---------------------------------------------------------------------##
 

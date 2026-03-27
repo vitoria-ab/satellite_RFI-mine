@@ -11,15 +11,12 @@ import os
 import tqdm as tqdm
 ##---------------------------Numpy------------------------
 import numpy as np
-
 ##---------------------------Scipy------------------------
 import scipy as sp
 import scipy.optimize as opt
 from scipy.interpolate import Rbf as Rbf
-
 ##---------------------------Panda------------------------
 import pandas as pd
-
 ##---------------------------Astropy------------------------
 from astropy.time import Time
 import astropy.units as u
@@ -28,8 +25,8 @@ from astropy.stats import SigmaClip
 ##---------------------------Matplotlib------------------------
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib.ticker import MaxNLocator
 import matplotlib.dates as md
-## rc parameter files
 small, medium, big = 15, 18, 25
 plt.rc('font', size=small)          # controls default text sizes
 plt.rc('axes', titlesize=big)     # fontsize of the axes title
