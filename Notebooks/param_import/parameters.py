@@ -17,6 +17,7 @@ block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
 path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
+path_new_catalog = "Satellite_Catalogue/new_satellite_constellation_catalog.csv"
 # final results
 folder_results = "sat_12/"
 suffix_results = "vitoria"
@@ -24,7 +25,7 @@ suffix_results = "vitoria"
 
 ## ----- PARAMETERS : FITTING ----- ##
 # cost function from eq. 11 (options: True=radiometer(C1), False=1(C2))
-CF_case = "C2"
+CF_case = "C1"
 # frequency window for the alpha fitting
 fs_slice, fe_slice = 1100, 1350
 # total frequency window
@@ -36,7 +37,7 @@ else:  path_nearby = (path_data+"nearby_satellites/nearby_satellite_close_angle_
 # thermal mask [kelvin] (options: 100,50,25 or None)
 mask_temperature = None
 # temporal mask [seconds] (options: 1000,1200,etc or None)
-ts_slice, te_slice = 5500,6200
+ts_slice, te_slice = None,None
 # threshold pixel mask (options: 2,5,7 or None)
 mask_pix = None
 # temporal averaging [seconds] (options: 10,20,etc or None)
@@ -46,7 +47,7 @@ time_average = None  # <-- NÃO ESTÁ NO CÓDIGO
 ## ----- PARAMETERS : SATELLITE MODEL ----- ##
 # beam model (options: "emss", "cosine" or "eidos")
 beam_model = "emss"
-# constellations to include (options: "gps-ops","glo-ops","galileo","beidou","irnss","sbas","qzs"
+# constellations to include (options: "gps-ops","glo-ops","galileo","beidou","irnss","sbas","qzs")
 include_cons = ['gps-ops', 'glo-ops', 'galileo', 'beidou', 'irnss', 'sbas']
 
 

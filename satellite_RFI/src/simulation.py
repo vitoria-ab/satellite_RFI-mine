@@ -222,7 +222,6 @@ class SatelliteSimulation:
         cons,sat_beam = self._filter_cons(f2["sat_name"], f2["angular"], turn_numpy=True)
 
         sat_beam = sat_beam[:, self.ifreq[0]:self.ifreq[1], :]
-        #if np.ndim(sat_beam)==1:  sat_beam = sat_beam[None,:]
         return cons,sat_beam
 
     # ----------------------------------------------- #
@@ -300,6 +299,4 @@ class SatelliteSimulation:
         return Tb_factors
 
     # ----------------------------------------------- #
-
-
 

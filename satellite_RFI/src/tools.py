@@ -165,7 +165,7 @@ def tle_download(tle_load=None, direc_path=None):
     tle_load: if 'None' will downlad else will return the path given
     direc_path: path of parent directory
     """
-    if tle_load == None:
+    if tle_load == None: 
         day = datetime.now()
         directory = (
             "{0:02d}".format(day.year)

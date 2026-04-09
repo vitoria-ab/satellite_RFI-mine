@@ -13,5 +13,6 @@
 - "wiggleZ_area": Old file, not rewritten.
 
 ## Notebooks:
-- "N3_fitting": File that fits the simulation to the data, using specific masking parameters.
-- "N3_graphs": File that shows the graphs for the data for all of the masks chosen.
+- "N3_fitting": Notebook that fits the simulation to the data, using specific masking parameters.
+- "N3_graphs": Notebook that shows the graphs for the data for all of the masks chosen; doesn't show time intervals yet.
+- "N4_create_catalogs": Notebook that creates the files 'new_satellite_constellation_catalog.csv' (new catalog that now has the signals of each satellite instead of the signals of each constellation) and 'satellite_angular_positions' (new file that saves the satellite angular positions in a more expedite manner).
