@@ -88,23 +88,16 @@ class SatelliteSimulation:
         self.frequency = self.frequency[idx_freq_range[0] : idx_freq_range[1]]
         self.ifreq = self._cut_range(self.frequency, freq_slice)
         
-        # getting beam response (B/r**2, summed for all satellites in a given constellation)
-        if verbose:  print("Getting beam response...")
-        cons,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range)
-        if verbose:  print("Constellations present: ", cons)
+        # getting beam response (B/r**2, summed for all satellites in a given constellation) 
+        if verbose:  print("Getting beam response...") 
+        cons,self.sats,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range) 
+        if verbose:  print("Satellites present: ", self.sats)
 
         # calculating satellite temperature factors for each signal (independent of alphas)
         for i,c in enumerate(cons):
             f = self._get_Tb_factors(cons=c)
             if i==0:  self.Tb_factors = f
             else:  self.Tb_factors = np.vstack([self.Tb_factors, f])
-
-        # counting index of first satellite in each constellation
-        self.index_sats = np.zeros(len(cons), dtype=int)
-        for i in range(len(cons) - 1):
-            self.index_sats[i+1] = len(self.catalog[self.catalog["Sys"].str.contains(cons[i])]) 
-            self.index_sats[i+1] += self.index_sats[i]
-        if verbose:  print("Starting index of satellites: ", self.index_sats)
 
         # getting observational data
         if use_data:  
@@ -197,13 +190,13 @@ class SatelliteSimulation:
     # ----------------------------------------------- #
     
     def _filter_cons(self, cons, array, turn_numpy=False):
-        ''' Filter constellation list based on the include_cons list, ordered with include_cons order. '''
+        ''' Filter constellation list based on the include_cons list, ordered with cons order. '''
 
         if self.include_cons is None:  return cons, array
         
         cons_new, array_new = [], []
-        for c in self.include_cons:
-            if c in cons: 
+        for c in cons:
+            if c in self.include_cons: 
                 idx = cons.index(c)
                 cons_new.append(cons[idx])
                 array_new.append(array[idx])
@@ -227,12 +220,19 @@ class SatelliteSimulation:
         ''' Get B/r^2 for each constellation (function of frequency and time). '''
 
         # getting data
-        f2 = pickle.load(open("{}{}_satellite_angular_position_{}_beam_{}_{}MHz.p".format(
-            path_beam,self.block,beam_model,*freq_range),"rb",), encoding="latin1")
-        cons,sat_beam = self._filter_cons(f2["sat_name"], f2["angular"], turn_numpy=True)
+        f2 = pickle.load(open("{}_satellite_angular_positions_{}_{}-{}.npz".format(
+            str(self.block),beam_model,*freq_range),"rb",), encoding="latin1")
 
+        # creating cons correspondence from catalog
+        cons = []
+        for sat in f2.keys():  cons.append(self.catalog.loc[self.catalog["Sat"]==str(sat),"Sys"].iloc[0])
+
+        # filtering constellations
+        cons2,sat_beam = self._filter_cons(cons, list(f2.values()), turn_numpy=True)
+        cons2,sats = self._filter_cons(cons, list(f2.keys()))
         sat_beam = sat_beam[:, self.ifreq[0]:self.ifreq[1], :]
-        return cons,sat_beam
+        
+        return cons,sats,sat_beam
 
     # ----------------------------------------------- #
     
