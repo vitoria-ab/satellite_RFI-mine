@@ -17,9 +17,9 @@ block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
 path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
-# final results
-folder_results = "sat_12/"
-suffix_results = "vitoria"
+# final results; can be "" or some suffix (like "_MOD")
+folder_results = "results/"
+prefix_results = "vi"
 
 
 ## ----- PARAMETERS : FITTING ----- ##
@@ -75,7 +75,7 @@ def my_name(CF_case, degree=None, temperature=None, pix=None, time_slice=None):
     if mask_name=="":  mask_name = "_nomask"
 
     # getting final name
-    fname = ("results/vi" + mask_name + CF_name + ".p")
+    fname = folder_results + prefix_results + mask_name + CF_name + ".p"
     return fname
 
 # -------------------------------

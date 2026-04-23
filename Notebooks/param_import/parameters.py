@@ -16,11 +16,10 @@ from imports import *
 block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
-path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
-path_new_catalog = "Satellite_Catalogue/new_satellite_constellation_catalog.csv"
-# final results
-folder_results = "sat_12/"
-suffix_results = "vitoria"
+#path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
+path_catalog = "Satellite_Catalogue/individual_satellite_constellation_catalog.csv"
+# final results; can be "" or some suffix (like "_MOD")
+suffix_results = "_MOD"
 
 
 ## ----- PARAMETERS : FITTING ----- ##
@@ -87,7 +86,7 @@ def my_name():
     if mask_name=="":  mask_name = "_nomask"
 
     # getting final name
-    fname = ("results/vi" + mask_name + CF_name + ".p")
+    fname = "results/vi" + mask_name + CF_name + suffix_results + ".p"
     return fname
     
 
