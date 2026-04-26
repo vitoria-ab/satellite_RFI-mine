@@ -16,10 +16,11 @@ from imports import *
 block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
-path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
+old_path_catalog = "Satellite_Catalogue/satellite_constellation_catalog.csv"
+path_catalog = "Satellite_Catalogue/individual_satellite_constellation_catalog.csv"
 # final results; can be "" or some suffix (like "_MOD")
-folder_results = "results/"
-prefix_results = "vi"
+folder_results = "results/paper/"
+prefix_results = ""
 
 
 ## ----- PARAMETERS : FITTING ----- ##
@@ -58,21 +59,20 @@ def my_name(CF_case, degree=None, temperature=None, pix=None, time_slice=None):
     ''' My file name to save alphas. '''
 
     # chi-sigma
-    if CF_case=="C1":  CF_name = "_C1"
-    elif CF_case=="C2":  CF_name = "_C2"
+    CF_name = "_" + CF_case
 
     # masking
     mask_name = ""
-    if degree is not None:  mask_name += "_deg{}".format(degree[0])
-    if temperature is not None:  mask_name += "_thermal{}".format(temperature)
-    if pix is not None:  mask_name += "_pix{}".format(pix)
+    if degree is not None:  mask_name += "deg{}".format(degree[0])
+    if temperature is not None:  mask_name += "thermal{}".format(temperature)
+    if pix is not None:  mask_name += "pix{}".format(pix)
     if time_slice is not None:
         mask_name += "_interval"
         if time_slice[0] is not None:  mask_name += "{}".format(time_slice[0])
         else:  mask_name += "{:.0f}".format(pm.nd_s0[0])
         if time_slice[1] is not None:  mask_name += "-{}".format(time_slice[1])
         else:  mask_name += "-{:.0f}".format(pm.nd_s0[-1])
-    if mask_name=="":  mask_name = "_nomask"
+    if mask_name=="":  mask_name = "nomask"
 
     # getting final name
     fname = folder_results + prefix_results + mask_name + CF_name + ".p"

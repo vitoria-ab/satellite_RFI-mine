@@ -20,6 +20,7 @@ def CF_radiometer(alphas,sat):
     ''' Computes CF for the given alphas, with weights=obs (case C1). '''
     sat.execute(alphas)
     CF = np.sum( ((sat.observations_sat-sat.simulation) / sat.observations)**2 )
+    print(CF,end="\t")
     return CF
 
 # ----------------------------------------------- #
@@ -28,6 +29,7 @@ def CF_unweighted(alphas,sat):
     ''' Computes CF for the given alphas, with weights=1 (case C2). '''
     sat.execute(alphas)
     CF = np.sum( (sat.observations_sat-sat.simulation)**2 )
+    print(CF,end="\t")
     return CF
 
 # ----------------------------------------------- #
@@ -83,6 +85,12 @@ class SatelliteSimulation:
         self.catalog = self.catalog[self.catalog["Frequency[MHz]"] <= freq_slice[1]]
         if verbose:  print("Number of signals in satellite catalog: ", len(self.catalog))
 
+        # ordering catalog correctly -- only necessary because we are comparing with the new method!!
+        #self.catalog.loc[self.catalog["Sys"]=="beidou-2","Sys"] = "beidou"
+        #self.catalog.loc[self.catalog["Sys"]=="beidou-3","Sys"] = "beidou"
+        #order = {"gps-ops":0, "galileo":1, "irnss":2, "sbas":3, "glo-ops":4, "beidou":5}
+        #self.catalog = self.catalog.sort_values(by='Sys',key=lambda col:col.map(order))
+
         # getting frequency range, time slice, and frequency slice
         idx_freq_range = self._cut_range(self.frequency, freq_range)
         self.frequency = self.frequency[idx_freq_range[0] : idx_freq_range[1]]
@@ -90,19 +98,19 @@ class SatelliteSimulation:
         
         # getting beam response (B/r**2, summed for all satellites in a given constellation)
         if verbose:  print("Getting beam response...")
-        cons,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range)
-        if verbose:  print("Constellations present: ", cons)
+        self.cons,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range)
+        if verbose:  print("Constellations present: ", self.cons)
 
         # calculating satellite temperature factors for each signal (independent of alphas)
-        for i,c in enumerate(cons):
+        for i,c in enumerate(self.cons):
             f = self._get_Tb_factors(cons=c)
             if i==0:  self.Tb_factors = f
             else:  self.Tb_factors = np.vstack([self.Tb_factors, f])
 
         # counting index of first satellite in each constellation
-        self.index_sats = np.zeros(len(cons), dtype=int)
-        for i in range(len(cons) - 1):
-            self.index_sats[i+1] = len(self.catalog[self.catalog["Sys"].str.contains(cons[i])]) 
+        self.index_sats = np.zeros(len(self.cons), dtype=int)
+        for i in range(len(self.cons) - 1):
+            self.index_sats[i+1] = len(self.catalog[self.catalog["Sys"].str.contains(self.cons[i])]) 
             self.index_sats[i+1] += self.index_sats[i]
         if verbose:  print("Starting index of satellites: ", self.index_sats)
 

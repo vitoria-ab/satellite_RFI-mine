@@ -16,6 +16,7 @@ from satellite_RFI.src import psd_models
 ## ------------------ FUNCTIONS ---------------- ##
 # ----------------------------------------------- #
 
+
 def CF_radiometer(alphas,sat):
     ''' Computes CF for the given alphas, with weights=obs (case C1). '''
     sat.execute(alphas)
@@ -106,12 +107,6 @@ class SatelliteSimulation:
             self.index_sats[i+1] += self.index_sats[i]
         if verbose:  print("Starting index of satellites: ", self.index_sats)
 
-        # getting indexes for faster broadcasting of alphas (necessary only to simulate the original set-up)
-        sizes = np.diff(np.hstack([self.index_sats, 286]))
-        change = np.r_[False, sizes[1:] != sizes[:-1]]
-        starts = np.cumsum(np.r_[0, sizes[:-1] * change[:-1]])
-        self.index_alphas = np.concatenate([np.arange(s) for s in sizes]) + np.repeat(starts,sizes)
-
         # getting observational data
         if use_data:  
             self.observations, self.observations_BG = self._get_observations(path_data)  # <-- already sliced!
@@ -133,7 +128,7 @@ class SatelliteSimulation:
         # initial parameters
         mask = np.ones_like(self.observations, dtype=bool) 
 
-        # angular mask
+        # angular mask ---- not altered for individual satellites yet!!
         if path_nearby is not None: 
             f = pickle.load(open(path_nearby, "rb"), encoding="latin1") 
             nearby_cons, nearby_times = self._filter_cons(list(f.keys()), list(f.values())) 
@@ -201,22 +196,6 @@ class SatelliteSimulation:
         print("Catalog updated with alphas!")
 
     # ----------------------------------------------- #
-    
-    def _filter_cons(self, cons, array, turn_numpy=False):
-        ''' Filter constellation list based on the include_cons list, ordered with cons order. '''
-
-        if self.include_cons is None:  return cons, array
-        
-        cons_new, array_new = [], []
-        for c in cons:
-            if c in self.include_cons: 
-                idx = cons.index(c)
-                cons_new.append(cons[idx])
-                array_new.append(array[idx])
-        if turn_numpy:  return np.array(cons_new), np.array(array_new)
-        return cons_new, array_new
-
-    # ----------------------------------------------- #
 
     def _cut_range(self, array, limits):
         ''' Get array cut within the specified limits. '''
@@ -226,6 +205,21 @@ class SatelliteSimulation:
         if limits[1] is None:  idx_end = -1  # <-- MAKES NO SENSE!
         else:  idx_end = np.where(array > limits[1])[0][0] + 1
         return [idx_start, idx_end]
+
+    # ----------------------------------------------- #
+
+    def _filter_cons(self, cons, array, turn_numpy=False):
+        ''' Filter constellation list based on the include_cons list, ordered with cons order. '''
+
+        if self.include_cons is None:  return cons, array
+        
+        cons_new, array_new = [], []
+        for i,c in enumerate(cons):
+            if c in self.include_cons: 
+                cons_new.append(c)
+                array_new.append(array[i])
+        if turn_numpy:  return np.array(cons_new), np.array(array_new)
+        return cons_new, array_new
 
     # ----------------------------------------------- #
     
@@ -238,11 +232,11 @@ class SatelliteSimulation:
 
         # creating cons correspondence from catalog
         cons = []
-        for sat in f2.keys():  cons.append(self.catalog.loc[self.catalog["Sat"]==str(sat),"Sys"].iloc[0])
+        for sat in f2.keys():  cons.append(self.catalog.loc[self.catalog["Sat"]==sat,"Sys"].iloc[0])
 
         # filtering constellations
         cons2,sat_beam = self._filter_cons(cons, list(f2.values()), turn_numpy=True)
-        cons2,sats = self._filter_cons(cons, [str(k) for k in f2.keys()])
+        cons2,sats = self._filter_cons(cons, list(f2.keys()))
         sat_beam = sat_beam[:, self.ifreq[0]:self.ifreq[1], :]
         
         return cons,sats,sat_beam

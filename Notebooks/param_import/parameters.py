@@ -16,15 +16,16 @@ from imports import *
 block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
-#path_catalog  = "Satellite_Catalogue/satellite_constellation_catalog.csv"
+old_path_catalog = "Satellite_Catalogue/satellite_constellation_catalog.csv"
 path_catalog = "Satellite_Catalogue/individual_satellite_constellation_catalog.csv"
 # final results; can be "" or some suffix (like "_MOD")
-suffix_results = "_MOD"
+folder_results = "results/individual_sats0/"
+prefix_results = ""
 
 
 ## ----- PARAMETERS : FITTING ----- ##
 # cost function from eq. 11 (options: True=radiometer(C1), False=1(C2))
-CF_case = "C1"
+CF_case = "C2"
 # frequency window for the alpha fitting
 fs_slice, fe_slice = 1100, 1350
 # total frequency window
@@ -36,7 +37,7 @@ else:  path_nearby = (path_data+"nearby_satellites/nearby_satellite_close_angle_
 # thermal mask [kelvin] (options: 100,50,25 or None)
 mask_temperature = None
 # temporal mask [seconds] (options: 1000,1200,etc or None)
-ts_slice, te_slice = None,None
+ts_slice, te_slice = 5500,6200
 # threshold pixel mask (options: 2,5,7 or None)
 mask_pix = None
 # temporal averaging [seconds] (options: 10,20,etc or None)
@@ -74,19 +75,19 @@ def my_name():
 
     # masking
     mask_name = ""
-    if mask_degree is not None:  mask_name += "_deg{}".format(mask_degree[0])
-    if mask_temperature is not None:  mask_name += "_thermal{}".format(mask_temperature)
-    if mask_pix is not None:  mask_name += "_pix{}".format(mask_pix)
+    if mask_degree is not None:  mask_name += "deg{}".format(mask_degree[0])
+    if mask_temperature is not None:  mask_name += "thermal{}".format(mask_temperature)
+    if mask_pix is not None:  mask_name += "pix{}".format(mask_pix)
     if (ts_slice is not None) or (te_slice is not None):
-        mask_name += "_interval"
+        mask_name += "interval"
         if ts_slice is not None:  mask_name += "{}".format(ts_slice)
         else:  mask_name += "{:.0f}".format(nd_s0[0])
         if te_slice is not None:  mask_name += "-{}".format(te_slice)
         else:  mask_name += "-{:.0f}".format(nd_s0[-1])
-    if mask_name=="":  mask_name = "_nomask"
+    if mask_name=="":  mask_name = "nomask"
 
     # getting final name
-    fname = "results/vi" + mask_name + CF_name + suffix_results + ".p"
+    fname = folder_results + prefix_results + mask_name + CF_name + ".p"
     return fname
     
 
