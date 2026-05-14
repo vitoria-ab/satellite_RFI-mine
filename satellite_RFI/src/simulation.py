@@ -10,11 +10,13 @@ import numpy as np
 import astropy.constants as cc
 from fractions import Fraction
 from satellite_RFI.src import psd_models
+from scipy.optimize import lsq_linear
 
 
 # ----------------------------------------------- #
 ## ------------------ FUNCTIONS ---------------- ##
 # ----------------------------------------------- #
+
 
 def CF_radiometer(alphas,sat):
     ''' Computes CF for the given alphas, with weights=obs (case C1). '''
@@ -62,7 +64,6 @@ class SatelliteSimulation:
     create_mask: Creates a mask given the parameters.
     execute: Calculates the simulation for a given set of alpha values.
     execute_withmask: Same as execute, but applies the mask (necessary when we are only visualizing results).
-    update_alphas: Updates the internal catalog with the alpha values given.
     """
 
     # ----------------------------------------------- #
@@ -72,24 +73,19 @@ class SatelliteSimulation:
         ''' Initializes the simulation with some attributes and calculates everything that doesn't require alphas. '''
 
         # saving attributes
-        self.block = block
-        self.use_data = use_data
-        self.nd_s0, self.frequency = (survey_info[0],survey_info[2])
+        self.block = block 
+        self.use_data = use_data 
+        self.nd_s0, self.frequency = (survey_info[0],survey_info[2]) 
         self.include_cons = include_cons
 
-        # getting catalog data for the specific constellations and frequency slice
-        if verbose:  print("Getting catalog...")
-        self.catalog = pd.read_csv(path_catalog, header=0, engine="python")
-        self.catalog = self.catalog[self.catalog["Sys"].str.contains("|".join(include_cons))]
-        self.catalog = self.catalog[self.catalog["Frequency[MHz]"] >= freq_slice[0]]
-        self.catalog = self.catalog[self.catalog["Frequency[MHz]"] <= freq_slice[1]]
-        if verbose:  print("Number of signals in satellite catalog: ", len(self.catalog))
-
-        # ordering catalog correctly -- only necessary because we are comparing with the new method!!
-        #self.catalog.loc[self.catalog["Sys"]=="beidou-2","Sys"] = "beidou"
-        #self.catalog.loc[self.catalog["Sys"]=="beidou-3","Sys"] = "beidou"
-        #order = {"gps-ops":0, "galileo":1, "irnss":2, "sbas":3, "glo-ops":4, "beidou":5}
-        #self.catalog = self.catalog.sort_values(by='Sys',key=lambda col:col.map(order))
+        # getting catalog data for the specific constellations and frequency slice -- NEW CATALOG!
+        print("Getting catalog...")
+        catalog = pd.read_csv(path_catalog, header=0, engine="python")
+        catalog = catalog[catalog["Sys"].str.contains("|".join(include_cons))]
+        catalog = catalog[catalog["Frequency[MHz]"] >= freq_slice[0]]
+        catalog = catalog[catalog["Frequency[MHz]"] <= freq_slice[1]]
+        if verbose:  print("Number of signals in satellite catalog: ", len(catalog))
+        self.catalog = catalog
 
         # getting frequency range, time slice, and frequency slice
         idx_freq_range = self._cut_range(self.frequency, freq_range)
@@ -97,24 +93,21 @@ class SatelliteSimulation:
         self.ifreq = self._cut_range(self.frequency, freq_slice)
         
         # getting beam response (B/r**2, summed for all satellites in a given constellation)
-        if verbose:  print("Getting beam response...")
-        self.cons,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range)
-        if verbose:  print("Constellations present: ", self.cons)
+        print("Getting beam response (2GB) ...") 
+        self.cons,self.sats,self.sat_beam = self._get_beam_response(path_beam, beam_model, freq_range) 
+        if verbose:  print("Number of satellites present: ", len(self.sats))
+        
+        # getting satellite temperature factors for each signal (independent of alphas)
+        print("Getting temperature factors for each signal...")
+        self.Tb_factors = self._get_Tb_factors()
 
-        # calculating satellite temperature factors for each signal (independent of alphas)
-        for i,c in enumerate(self.cons):
-            f = self._get_Tb_factors(cons=c)
-            if i==0:  self.Tb_factors = f
-            else:  self.Tb_factors = np.vstack([self.Tb_factors, f])
-
-        # counting index of first satellite in each constellation
-        self.index_sats = np.zeros(len(self.cons), dtype=int)
-        for i in range(len(self.cons) - 1):
-            self.index_sats[i+1] = len(self.catalog[self.catalog["Sys"].str.contains(self.cons[i])]) 
-            self.index_sats[i+1] += self.index_sats[i]
+        # counting number of signals in each satellite and starting index of satellites
+        self.n_signals = np.array([len(catalog[catalog["Sat"]==s]) for s in self.sats])
+        self.index_sats = np.concatenate(([0], np.cumsum(self.n_signals)[:-1]))
         if verbose:  print("Starting index of satellites: ", self.index_sats)
 
         # getting observational data
+        print("Getting observational data...")
         if use_data:  
             self.observations, self.observations_BG = self._get_observations(path_data)  # <-- already sliced!
             self.observations_sat = self.observations - self.observations_BG
@@ -133,20 +126,20 @@ class SatelliteSimulation:
         ''' Creates the mask and applies itime to sat_beam and observations_sat. '''
 
         # initial parameters
-        mask = np.ones_like(self.observations, dtype=bool)
+        mask = np.ones_like(self.observations, dtype=bool) 
 
-        # angular mask
-        if path_nearby is not None:
-            f = pickle.load(open(path_nearby, "rb"), encoding="latin1")
-            nearby_cons, nearby_times = self._filter_cons(list(f.keys()), list(f.values()))
-            mask_degree = np.ones((len(self.frequency),len(self.nd_s0)), dtype=bool)
-            for idx,c in enumerate(nearby_cons):  mask_degree[:, nearby_times[idx]] = False
-            mask_degree = mask_degree[self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]]
-            mask = (mask & mask_degree)
+        # angular mask ---- not altered for individual satellites yet!!
+        if path_nearby is not None: 
+            f = pickle.load(open(path_nearby, "rb"), encoding="latin1") 
+            nearby_cons, nearby_times = self._filter_cons(list(f.keys()), list(f.values())) 
+            mask_degree = np.ones((len(self.frequency),len(self.nd_s0)), dtype=bool) 
+            for idx,c in enumerate(nearby_cons):  mask_degree[:, nearby_times[idx]] = False 
+            mask_degree = mask_degree[self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]] 
+            mask = (mask & mask_degree) 
 
         # temperature mask
         if temperature is not None:
-            mask_temperature = np.where(self.observations <= temperature, True, False)
+            mask_temperature = np.where(self.observations <= temperature, True, False) 
             mask = (mask & mask_temperature)
 
         # pixel timeline mask
@@ -177,47 +170,47 @@ class SatelliteSimulation:
                 
     # ----------------------------------------------- #
     
-    def execute(self, alphas, verbose=False):
+    def execute(self, alphas):
         ''' Calculates the simulation using the alphas given. '''
 
         # calculating simulation
         power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_sats, axis=0)
-        #self.simulation = np.sum(self.sat_beam*power_term[:,:,None], axis=0)  # <-- takes x3 times longer!
         self.simulation = np.einsum('kij,ki->ij', self.sat_beam, power_term)
 
     # ----------------------------------------------- #
     
-    def execute_withmask(self, alphas, verbose=False):
+    def execute_withmask(self, alphas):
         ''' Calculates the simulation using the alphas given, and masking the simulation (if not done prior!). '''
 
         # calculating simulation
         power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_sats, axis=0)
-        #self.simulation = np.sum(self.sat_beam*power_term[:,:,None], axis=0)  # <-- takes x3 times longer!
         self.simulation = np.einsum('kij,ki->ij', self.sat_beam*self.mask, power_term)
 
     # ----------------------------------------------- #
-    
-    def update_alphas(self,alphas):
-        ''' Update catalog with alphas. '''
-        self.catalog["Alpha"] = alphas
-        print("Catalog updated with alphas!")
 
-    # ----------------------------------------------- #
-    
-    def _filter_cons(self, cons, array, turn_numpy=False):
-        ''' Filter constellation list based on the include_cons list, ordered with include_cons order. '''
+    def optimize_alphas_LS(self, CF):  
+        ''' Find optimal alphas with least squares weighted or not, 
+        by solving the linear problem |A*alpha - b|^2 with lsq_linear. '''
 
-        if self.include_cons is None:  return cons, array
+        # creating matrix A
+        print("Creating matrix A (6 GB) and b ...")
+        A = np.repeat(self.sat_beam,self.n_signals,axis=0)
+        A = A * self.Tb_factors[:,:,None]
+        A = A.reshape(-1, len(self.catalog))
+        b = self.observations_sat.ravel()
+
+        # defining weights if necessary
+        print("Applying weights...")
+        if CF=="C1":  
+            weights = 1.0 / self.observations.ravel()
+            A = A * weights[:,None]
+            b = b * weights
+
+        print("Solving linear equation...")
+        res = lsq_linear(A, b, bounds=(0, np.inf))
+        alpha_opt = res.x
+        return res
         
-        cons_new, array_new = [], []
-        for c in self.include_cons:
-            if c in cons: 
-                idx = cons.index(c)
-                cons_new.append(cons[idx])
-                array_new.append(array[idx])
-        if turn_numpy:  return np.array(cons_new), np.array(array_new)
-        return cons_new, array_new
-
     # ----------------------------------------------- #
 
     def _cut_range(self, array, limits):
@@ -230,17 +223,36 @@ class SatelliteSimulation:
         return [idx_start, idx_end]
 
     # ----------------------------------------------- #
+
+    def _filter_cons(self, cons, array, turn_numpy=False):
+        ''' Filter constellation list based on the include_cons list, ordered with cons order. '''
+
+        if self.include_cons is None:  return cons, array
+        
+        cons_new, array_new = [], []
+        for i,c in enumerate(cons):
+            if c in self.include_cons: 
+                cons_new.append(c)
+                array_new.append(array[i])
+        if turn_numpy:  return np.array(cons_new), np.array(array_new)
+        return cons_new, array_new
+
+    # ----------------------------------------------- #
     
     def _get_beam_response(self, path_beam, beam_model, freq_range):
         ''' Get B/r^2 for each constellation (function of frequency and time). '''
 
         # getting data
-        f2 = pickle.load(open("{}{}_satellite_angular_position_{}_beam_{}_{}MHz.p".format(
-            path_beam,self.block,beam_model,*freq_range),"rb",), encoding="latin1")
-        cons,sat_beam = self._filter_cons(f2["sat_name"], f2["angular"], turn_numpy=True)
+        f2 = pickle.load(open("{}_satellite_angular_positions_{}_{}-{}.npz".format(
+            str(self.block),beam_model,*freq_range),"rb",), encoding="latin1")
 
+        # filtering constellations
+        cons = [self.catalog.loc[self.catalog["Sat"]==sat,"Sys"].iloc[0] for sat in f2.keys()]
+        cons2,sat_beam = self._filter_cons(cons, list(f2.values()), turn_numpy=True)
+        cons2,sats = self._filter_cons(cons, list(f2.keys()))
         sat_beam = sat_beam[:, self.ifreq[0]:self.ifreq[1], :]
-        return cons,sat_beam
+        
+        return cons,sats,sat_beam
 
     # ----------------------------------------------- #
     
@@ -252,33 +264,32 @@ class SatelliteSimulation:
         observations = np.array(data["TOD Avg"].T)
         observations_BG = np.array(data["BG Model"].T)
 
-        
+        # cutting frequency interval
         observations = observations[self.ifreq[0]:self.ifreq[1], :]
         observations_BG = observations_BG[self.ifreq[0]:self.ifreq[1], :]
         return observations, observations_BG
 
     # ----------------------------------------------- #
 
-    def _get_Tb_factors(self, cons):
+    def _get_Tb_factors(self):
         ''' Returns the array of brightness temperature factors (functions 
         of frequency) for all signals of a given constellation. '''
 
-        data = self.catalog[self.catalog["Sys"].str.contains(cons)]
-        P = data["P_t (dBW)"]
-        G = data["G_t (dBi)"]
+        P = self.catalog["P_t (dBW)"] 
+        G = self.catalog["G_t (dBi)"] 
     
         # calculating emitted power)
         value = 10**(P/10 + G/10) / (4*np.pi)
         power = np.where(P*G != 0, value, 0)
-        SP = np.zeros( (len(data), len(self.frequency)) )
-        
+        SP = np.zeros( (len(self.catalog), len(self.frequency)) )
+         
         # looping through each signal of the constellation
-        for k,i in enumerate(data.index):
+        for k,i in enumerate(self.catalog.index):
             
             # getting information
-            m = data["Modulation"][i]
-            fc = data["Frequency[MHz]"][i]
-            rate = data["Rate(MHz)"][i]
+            m = self.catalog["Modulation"][i]
+            fc = self.catalog["Frequency[MHz]"][i]
+            rate = self.catalog["Rate(MHz)"][i]
             mtype = m.split("(")[0]
             params = m[m.find("(")+1 : m.find(")")].split(",")
     
