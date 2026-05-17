@@ -2,7 +2,8 @@
 ### Versions of the code:
 - **v0**: Constellation paradigm (uses a matrix for each constellation); results are good.
 - **v1**: Satellite paradigm, recovering constellation results (uses a matrix for each satellite, but imposes that alphas of satellites within the same constellations are the same); results are good.
-- **v2**: Constellation paradigm (uses a matrix for each constellation), but using a linear optimization algorithm; incomplete.
+- **v2**: Constellation paradigm (uses a matrix for each constellation), but using `lsq_linear`; results are good.
+- **v3**: Satellite paradigm using `nnls`, with new results; results are generally good, they need to be inspected.
 
 ### Files in sattelite_RFI:
 (*These are the files from satellite_RFI; tried to keep the same files and structure and just rewrite for clarity and for faster code.*)
@@ -14,8 +15,8 @@
 - **psd_models**: File with the Power Spectrum Density models for the GNSS satellite signals; partially rewritten for clarity.
 - **rewrite_tle**: Old file, not rewritten.
 - **satellite_extract**: Old file, not rewritten.
-- **simulation_cons**: File with the simulation object, which gathers information calculated in the different files and performs the final calculations for the fitting; completely rewritten for clarity and celerity.
-- **simulation**: Rewrite of simulation_cons but using the paradigm of individual satellites instead of constellations.
+- **simulation_cons**: File with the simulation object, which gathers information calculated in the different files and performs the final calculations for the fitting; completely rewritten for clarity and celerity. Used in v0 and v2.
+- **simulation**: Rewrite of simulation_cons but using the paradigm of individual satellites instead of constellations. Used in v1 and v3.
 - **tle_sat_download**: Old file, not rewritten.
 - **tools**: Old file, not rewritten. 
 - **wiggleZ_area**: Old file, not rewritten. 
@@ -25,8 +26,8 @@
 - **N2a_create_catalogs**: Notebook that creates files with individual satellite information, instead of the current files with general information of each constellation. Creates files *new_satellite_constellation_catalog.csv* (new catalog that now has the signals of each satellite instead of the signals of each constellation) and *satellite_angular_positions* (new file that saves the satellite angular positions in a more expedite manner). 
 - **N3_fitting**: Notebook that fits the simulation to the data, using specific masking parameters.
 - **N4_graphs**: Notebook that shows the graphs for the data for all of the masks chosen; doesn't show time intervals yet!
-- **\param_import**: Folder with the files *parameters.py* and *parameters_graphs.py* which specify the parameters used in notebooks N3 (fitting) and N4 (graphs) respectively.
-- **\results**: Folder with generated results; for now includes folder *\v0_paper* (generated from the rewritten original code, same as paper), and *\v1_paper_with_individualsats* (generated from the individual satellites code reproducing the results from the paper).
+- **\param_import**: Folder with the files *parameters.py* which specify the parameters used in notebooks N3 (fitting) and N4 (graphs).
+- **\results**: Folder with generated results, with subfolders for each version of the code that is created.
 - **\PreviousNBs**: Notebooks from previous versions (v0,v1 etc) which have been completed and don't need to be touched anymore.
 
 
@@ -60,10 +61,12 @@
 (*OBJECTIVES: Since this problem is essentially minimizing a system of equations A.alpha - b, it seems to be possible to use least squares directly (instead of through optimization algorithms). It might save a lot of time, so I'm going to rewrite the problem for the constellations using this paradigm and check if they recover the same alphas.*)
 - Altered the plotting notebooks so they show the absolute errors of the new alpha values vs. the paper values.
 - Wrote *v2*, which uses the constellation paradigm from *v0* but with a new optimization - lsq_linear; as such should be faster and more reliable while still recovering the same results.
+- Recovered results in *v2*, they are all consistent with the graphs from the paper.
 
 ### WEEK 10: 14 - 21 of may
-(*OBJETIVES: Understand why the values that I'm getting are different from those of the paper.*)
-- TO DO: Check if the files I'm using for reference recover the same results as the paper.
-- TO DO: Check if the versions are consistent among each other and it's only between them and the paper values that the problem lies.
-- TO DO: Clean the plotting code, move the functions to a new file from which to import them.
-- TO DO: Clean the optimizing code, move the optimization functions either to a new file or just to the notebook itself (don't write them on the simulation.py file) and move the parameters to the notebook itself as well (do this later!).
+(*OBJETIVES: Run optimization with all of the satellites, and try to find what's happening with the paper's results.*)
+- TO DO: Check if the files I'm using for reference recover the same results as the paper; check the pdfs of graphs!
+- Cleaned the optimizing code; now the parameters that are constantly changing are in the beginning of the notebook (instead of in *parameters.py*) so I don't need to change that file all the time, and the optimizing functions are described within the notebook (makes sense, since they are a separate object from the simulation).
+- Changed `lsq_linear` to `nnls` since that is the boundary condition that we want and it uses a more specialized code; the results in *v2* remained the same.
+- Wrote *v3*, which uses this new optimization with all of the satellites; using `nnls` the code went from 30mins to 3mins. Generated all of the results.
+- TO DO: Analize the results from *v3*, check if alpha values make sense, if graphs obtained are better, if cost functions are minimized further than before.

@@ -17,24 +17,6 @@ from scipy.optimize import lsq_linear
 ## ------------------ FUNCTIONS ---------------- ##
 # ----------------------------------------------- #
 
-def CF_radiometer(alphas,sat):
-    ''' Computes CF for the given alphas, with weights=obs (case C1). '''
-    sat.execute(alphas)
-    CF = np.sum( ((sat.observations_sat-sat.simulation) / sat.observations)**2 )
-    print(CF,end="\t")
-    return CF
-
-# ----------------------------------------------- #
-
-def CF_unweighted(alphas,sat):
-    ''' Computes CF for the given alphas, with weights=1 (case C2). '''
-    sat.execute(alphas)
-    CF = np.sum( (sat.observations_sat-sat.simulation)**2 )
-    print(CF,end="\t")
-    return CF
-
-# ----------------------------------------------- #
-
 def _floaty(x):
     """ Auxiliary function for values stored as floats or fractions. """
     try:  return float(x)

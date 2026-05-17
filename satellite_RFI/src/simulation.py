@@ -10,30 +10,10 @@ import numpy as np
 import astropy.constants as cc
 from fractions import Fraction
 from satellite_RFI.src import psd_models
-from scipy.optimize import lsq_linear
 
 
 # ----------------------------------------------- #
 ## ------------------ FUNCTIONS ---------------- ##
-# ----------------------------------------------- #
-
-
-def CF_radiometer(alphas,sat):
-    ''' Computes CF for the given alphas, with weights=obs (case C1). '''
-    sat.execute(alphas)
-    CF = np.sum( ((sat.observations_sat-sat.simulation) / sat.observations)**2 )
-    print(CF,end="\t")
-    return CF
-
-# ----------------------------------------------- #
-
-def CF_unweighted(alphas,sat):
-    ''' Computes CF for the given alphas, with weights=1 (case C2). '''
-    sat.execute(alphas)
-    CF = np.sum( (sat.observations_sat-sat.simulation)**2 )
-    print(CF,end="\t")
-    return CF
-
 # ----------------------------------------------- #
 
 def _floaty(x):
@@ -111,6 +91,7 @@ class SatelliteSimulation:
         if use_data:  
             self.observations, self.observations_BG = self._get_observations(path_data)  # <-- already sliced!
             self.observations_sat = self.observations - self.observations_BG
+        self.tmp = np.empty_like(self.Tb_factors)  # <-- useful to spare memory in execute
 
         # time interval
         self.itime = self._cut_range(self.nd_s0, time_slice)
@@ -174,9 +155,10 @@ class SatelliteSimulation:
         ''' Calculates the simulation using the alphas given. '''
 
         # calculating simulation
-        power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_sats, axis=0)
+        np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
+        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0)
         self.simulation = np.einsum('kij,ki->ij', self.sat_beam, power_term)
-
+        
     # ----------------------------------------------- #
     
     def execute_withmask(self, alphas):
@@ -194,9 +176,12 @@ class SatelliteSimulation:
 
         # creating matrix A
         print("Creating matrix A (6 GB) and b ...")
-        A = np.repeat(self.sat_beam,self.n_signals,axis=0)
-        A = A * self.Tb_factors[:,:,None]
-        A = A.reshape(-1, len(self.catalog))
+        A = np.empty((self.observations_sat.size, len(self.catalog)))
+        for j in range(len(self.catalog)):
+            alphas = np.zeros(len(self.catalog))
+            alphas[j] = 1.0
+            self.execute(alphas)
+            A[:,j] = self.simulation.ravel()
         b = self.observations_sat.ravel()
 
         # defining weights if necessary

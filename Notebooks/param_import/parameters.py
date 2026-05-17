@@ -1,9 +1,10 @@
 """
-File with parameter information.
+File with parameter information. If the parameters are constantly changed, the ones shown here are just dummy parameters and they are altered within the notebook whenever necessary.
 
 Functions
 ---------
-show_ideal_name : prints the ideal saving file name.
+my_name : prints the current filename used.
+brandon_name: prints Brandon's filename.
 show_parameters : prints the parameter information.
 """
 
@@ -16,30 +17,14 @@ from imports import *
 block = 1551055211
 # folders and files
 path_data = "/idia/projects/hi_im/satellite_rfi/Testing/"+str(block)+"/"
-old_path_catalog = "Satellite_Catalogue/satellite_constellation_catalog.csv"
-path_catalog = "Satellite_Catalogue/individual_satellite_constellation_catalog.csv"
-# final results; can be "" or some suffix (like "_MOD")
-folder_results = "results/individual_sats0/"
-prefix_results = ""
 
 
 ## ----- PARAMETERS : FITTING ----- ##
-# cost function from eq. 11 (options: True=radiometer(C1), False=1(C2))
-CF_case = "C2"
+# (the rest of the parameters that we are varying are within the notebooks themselves)
 # frequency window for the alpha fitting
 fs_slice, fe_slice = 1100, 1350
 # total frequency window
 fs, fe = 1000, 1500
-# angular mask [degrees] (options: "1F","5F" or None)
-mask_degree = None
-if mask_degree==None:  path_nearby = None
-else:  path_nearby = (path_data+"nearby_satellites/nearby_satellite_close_angle_"+mask_degree+".p")
-# thermal mask [kelvin] (options: 100,50,25 or None)
-mask_temperature = None
-# temporal mask [seconds] (options: 1000,1200,etc or None)
-ts_slice, te_slice = 5500,6200
-# threshold pixel mask (options: 2,5,7 or None)
-mask_pix = None
 # temporal averaging [seconds] (options: 10,20,etc or None)
 time_average = None  # <-- NÃO ESTÁ NO CÓDIGO
 
@@ -60,46 +45,47 @@ nd_s0_coords = katdal["nd_s0_coords"]
 nd_s0_coords2 = katdal["nd_s0_coords2"]
 nd_s0_pos = katdal["nd_s0_pos"]
 frequency = katdal["frequency"]
+del katdal
 
 
 ## ---------------------------- ##
 ## ----- USEFUL FUNCTIONS ----- ##
 ## ---------------------------- ##
 
-def my_name():
+def my_name(folder, CF, deg=None, temp=None, pix=None, t_slice=[None,None]):
     ''' My file name to save alphas. '''
 
     # chi-sigma
-    if CF_case=="C1":  CF_name = "_C1"
-    elif CF_case=="C2":  CF_name = "_C2"
+    CF_name = "_" + CF
 
     # masking
     mask_name = ""
-    if mask_degree is not None:  mask_name += "deg{}".format(mask_degree[0])
-    if mask_temperature is not None:  mask_name += "thermal{}".format(mask_temperature)
-    if mask_pix is not None:  mask_name += "pix{}".format(mask_pix)
-    if (ts_slice is not None) or (te_slice is not None):
+    if deg is not None:  mask_name += "deg{}".format(deg[0])
+    if temp is not None:  mask_name += "thermal{}".format(temp)
+    if pix is not None:  mask_name += "pix{}".format(pix)
+    if (t_slice[0] is not None) or (t_slice[1] is not None):
         mask_name += "interval"
-        if ts_slice is not None:  mask_name += "{}".format(ts_slice)
+        if t_slice[0] is not None:  mask_name += "{}".format(t_slice[0])
         else:  mask_name += "{:.0f}".format(nd_s0[0])
-        if te_slice is not None:  mask_name += "-{}".format(te_slice)
+        if t_slice[1] is not None:  mask_name += "-{}".format(t_slice[1])
         else:  mask_name += "-{:.0f}".format(nd_s0[-1])
     if mask_name=="":  mask_name = "nomask"
 
     # getting final name
-    fname = folder_results + prefix_results + mask_name + CF_name + ".p"
+    fname = folder + mask_name + CF_name + ".p"
     return fname
-    
 
-def brandon_name():
+## ---------------------------- ##
+
+def brandon_name(folder, CF, deg=None, temp=None, pix=None, t_slice=[None,None]):
     ''' Brandon's file name to save alphas, according to the parameters in the parameters.py file. '''
-
+    
     # frequency range
     freq_name = str(fs_slice) + "-" + str(fe_slice) + "_"
 
     # time range
     t_name = []
-    for i,t in enumerate([ts_slice,te_slice]):
+    for i,t in enumerate(t_slice):
         if t is None:  t_name.append(str(np.round(nd_s0[-i], 2)))
         else:  t_name.append(str(t))
     time_name = t_name[0]+"-"+t_name[1]+"_"
@@ -109,26 +95,27 @@ def brandon_name():
     else:  time_average_name = ""
 
     # chi-sigma
-    if CF_case == "C1":  CF_name = "residual_"
-    elif CF_case == "C2":  CF_name = "fractional_"
+    if CF == "C1":  CF_name = "residual_"
+    elif CF == "C2":  CF_name = "fractional_"
 
     # masking
     mask_name = ""
-    if mask_degree is not None:  mask_name += "degree-{}_".format(mask_degree)
-    if mask_temperature is not None:  mask_name += "thermal-{}_".format(mask_temperature)
-    if (ts_slice is not None) or (te_slice is not None):  mask_name += "temporal_"
-    if mask_pix is not None:  mask_name += "pix_timeline-{}_".format(mask_pix)
+    if deg is not None:  mask_name += "degree-{}_".format(deg)
+    if temp is not None:  mask_name += "thermal-{}_".format(temp)
+    if (t_slice[0] is not None) or (t_slice[1] is not None):  mask_name += "temporal_"
+    if pix is not None:  mask_name += "pix_timeline-{}_".format(pix)
     if mask_name=="":  mask_name = "no-mask_"
 
     # show ideal file name
-    fname = (path_data + folder_results + "{}_".format(block) + freq_name + time_name + mask_name + 
-             CF_name + time_average_name + suffix_results + ".p")
+    fname = (path_data + folder + "{}_".format(block) + freq_name + time_name + mask_name + 
+             CF_name + time_average_name + ".p")
     return fname
 
+## ---------------------------- ##
 
-def show_parameters():
+def show_parameters(CF=None, deg=None, temp=None, pix=None, t_slice=[None,None], plotting=False):
     ''' Show parameters in the parameters.py file, formatted correctly. '''
-
+    
     # block
     print("Block: {}".format(block))
 
@@ -139,24 +126,27 @@ def show_parameters():
         else:  f_write.append(str(f))
     print("Frequency range: {} - {} MHz".format(*f_write))
 
+    # stop here if i'm plotting all the results i got so far
+    if plotting: return
+
     # time range
     t_write = []
-    for i,t in enumerate([ts_slice,te_slice]):
+    for i,t in enumerate(t_slice):
         if t is None:  t_write.append("inf")
         else:  t_write.append(str(t))
     print("Time range: {} - {} seconds".format(*t_write))
 
     # chi-sigma
     print("The cost function denominator will be:",end=" ")
-    if CF_case == "C1":  print("radiometer equation (C1).")
-    elif CF_case == "C2":  print("unweighted (C2).")
+    if CF=="C1":  print("radiometer equation (C1).")
+    elif CF=="C2":  print("unweighted (C2).")
 
     # masking
     msg = "Masking: "
-    if mask_degree is not None:  msg += "Angular ({} deg), ".format(mask_degree)
-    if mask_temperature is not None:  msg += "Thermal ({} K), ".format(mask_temperature)
-    if (ts_slice is not None) or (te_slice is not None):  msg += "Temporal (shown above), "
-    if mask_pix is not None:  msg += "Pixel timeline, "
-    if msg=="Masking: ":  msg += "None., "
+    if deg is not None:  msg += "Angular ({} deg), ".format(deg)
+    if temp is not None:  msg += "Thermal ({} K), ".format(temp)
+    if (t_slice[0] is not None) or (t_slice[1] is not None):  msg += "Temporal (shown above), "
+    if pix is not None:  msg += "Pixel timeline, "
+    if msg=="Masking: ":  msg += "None, "
     print(msg[:-2])
     return
