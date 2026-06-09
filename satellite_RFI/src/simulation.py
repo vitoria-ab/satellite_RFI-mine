@@ -103,15 +103,15 @@ class SatelliteSimulation:
         
     # ----------------------------------------------- #
 
-    def create_mask(self, path_nearby=None, temperature=None, pix=None, apply=True, verbose=False):
+    def create_mask(self, deg=None, temp=None, pix=None, apply=True, verbose=False):
         ''' Creates the mask and applies itime to sat_beam and observations_sat. '''
 
         # initial parameters
         mask = np.ones_like(self.observations, dtype=bool) 
 
         # angular mask ---- not altered for individual satellites yet!!
-        if path_nearby is not None: 
-            f = pickle.load(open(path_nearby, "rb"), encoding="latin1") 
+        if deg is not None: 
+            f = pickle.load(open(deg, "rb"), encoding="latin1") 
             nearby_cons, nearby_times = self._filter_cons(list(f.keys()), list(f.values())) 
             mask_degree = np.ones((len(self.frequency),len(self.nd_s0)), dtype=bool) 
             for idx,c in enumerate(nearby_cons):  mask_degree[:, nearby_times[idx]] = False 
@@ -119,8 +119,8 @@ class SatelliteSimulation:
             mask = (mask & mask_degree) 
 
         # temperature mask
-        if temperature is not None:
-            mask_temperature = np.where(self.observations <= temperature, True, False) 
+        if temp is not None:
+            mask_temperature = np.where(self.observations <= temp, True, False) 
             mask = (mask & mask_temperature)
 
         # pixel timeline mask

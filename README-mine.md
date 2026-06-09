@@ -65,8 +65,18 @@
 
 ### WEEK 10: 14 - 21 of may
 (*OBJETIVES: Run optimization with all of the satellites, and try to find what's happening with the paper's results.*)
-- TO DO: Check if the files I'm using for reference recover the same results as the paper; check the pdfs of graphs!
-- Cleaned the optimizing code; now the parameters that are constantly changing are in the beginning of the notebook (instead of in *parameters.py*) so I don't need to change that file all the time, and the optimizing functions are described within the notebook (makes sense, since they are a separate object from the simulation).
-- Changed `lsq_linear` to `nnls` since that is the boundary condition that we want and it uses a more specialized code; the results in *v2* remained the same.
-- Wrote *v3*, which uses this new optimization with all of the satellites; using `nnls` the code went from 30mins to 3mins. Generated all of the results.
-- TO DO: Analize the results from *v3*, check if alpha values make sense, if graphs obtained are better, if cost functions are minimized further than before.
+- TO DO: Check if the files I'm using for reference recover the same results as the paper; check the pdfs of graphs! 
+- Cleaned the optimizing code; now the parameters that are constantly changing are in the beginning of the notebook (instead of in *parameters.py*) so I don't need to change that file all the time, and the optimizing functions are described within the notebook (makes sense, since they are a separate object from the simulation). 
+- Changed `lsq_linear` to `nnls` since that is the boundary condition that we want and it uses a more specialized code; the results in *v2* remained the same. 
+- Wrote *v3*, which uses this new optimization with all of the satellites; using `nnls` the code went from 30mins to 3mins. Generated all of the results. 
+
+### WEEK 11: 21 - 28 of may
+(*OBJECTIVES: --*)
+
+### WEEK 12: 28 of may - 2 of june
+(*OBJECTIVES: Confirmar cenas da Iara em que alguns sinais são zero; ver se com as priors da Iara fica bem na mesma; tentar ver a correspondência com os satélites de cada constelação. Matriz de Fisher para estimar os erros? - não fazer agora.*) 
+- TO DO: Give identifiers to each signal within a constellation (can be just "A","B","C",etc if there are no universal names for each signal); check if the signals between constellations are completely different or if there is some overlap.
+- TO DO: Create a catalog of satellites, their constellation, their generation, and the signals that they have (can be a string of the signals separated by commas, or can be several columns with True/False for every signal). Later, change the code on N2 so that it uses this catalog to create the final catalog of signals to use. 
+- TO DO: Create new (and better) visualizations - try other types of graphs, select by constellation or by signal, select by satellite and check all characteristics of a given satellite (beam response map, signal curve, alpha values, final addition to the 1D and 2D plots). 
+- TO DO: Compare the results of alphas before and after and check for discrepancies - if the alpha is zero in a constellation and now all alphas in each satellite of that constellation are zero as well; if the alphas that are huge correspond to high values of alphas before (that now are all joined in 1 or 2 satellites).
+- TO DO: Check if the generation information that we have matches the fitted alphas. 
