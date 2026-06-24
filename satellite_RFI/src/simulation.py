@@ -258,12 +258,12 @@ class SatelliteSimulation:
 
     def _get_Tb_factors(self):
         ''' Returns the array of brightness temperature factors (functions 
-        of frequency) for all signals of a given constellation. '''
+        of frequency) for all signals. '''
 
         P = self.catalog["P_t (dBW)"] 
         G = self.catalog["G_t (dBi)"] 
     
-        # calculating emitted power)
+        # calculating emitted power
         value = 10**(P/10 + G/10) / (4*np.pi)
         power = np.where(P*G != 0, value, 0)
         SP = np.zeros( (len(self.catalog), len(self.frequency)) )
@@ -274,29 +274,27 @@ class SatelliteSimulation:
             # getting information
             m = self.catalog["Modulation"][i]
             fc = self.catalog["Frequency[MHz]"][i]
-            rate = self.catalog["Rate(MHz)"][i]
             mtype = m.split("(")[0]
             params = m[m.find("(")+1 : m.find(")")].split(",")
     
             # calculating modulations
             if mtype=="BPSK":
-                Tc = float(params[0])
-                psd = psd_models.BPSK(f=self.frequency-fc, nc=Tc, f0=rate/Tc)
+                nc = float(params[0])
+                psd = psd_models.BPSK(self.frequency-fc, nc)
             elif mtype=="BOCcos":
-                Ts, Tc = map(float, params)
-                psd = psd_models.BOCc(f=self.frequency-fc, nc=Tc, ns=Ts, f0=rate/Tc)
+                ns, nc = map(float, params)
+                psd = psd_models.BOCcos(self.frequency-fc, ns, nc)
             elif mtype=="AltBOC":
-                Ts, Tc = map(float, params)
-                psd = psd_models.altBOC(f=self.frequency-fc, ns=Ts, nc=Tc, f0=rate/Tc)
-            elif mtype=="TMBOC":
-                Ts, Tc, rt = [_floaty(x) for x in params]
-                psd = psd_models.TMBOC(f=self.frequency-fc, nc=Tc, ns=Ts, f0=rate/Tc, ratio=rt)
-            elif mtype=="CBOC":
-                Ts, Tc, rt = [_floaty(x) for x in params]
-                psd = psd_models.CBOC(f=self.frequency-fc, nc=Tc, ns=Ts, f0=rate/Tc, ratio=rt)
+                ns, nc = map(float, params)
+                psd = psd_models.AltBOC(self.frequency-fc, ns, nc)
+            elif mtype=="MBOC":
+                nsA, nsB, ratio = [_floaty(x) for x in params]
+                psd = psd_models.TMBOC(self.frequency-fc, nsA, nsB, ratio)
             elif mtype=="BOC":
-                Ts, Tc = map(float, params)
-                psd = psd_models.BOC(f=self.frequency-fc, nc=Tc, ns=Ts, f0=rate/Tc)
+                ns, nc = map(float, params)
+                psd = psd_models.BOC(self.frequency-fc, ns, nc)
+            else:
+                print("Error: Signal modulation {} is not valid.".format(mtype))
             psd = np.nan_to_num(psd, nan=0)
     
             # indexes are different because csv starts at 1, not 0

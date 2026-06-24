@@ -1,0 +1,11 @@
+{
+ "display_name": "HI_IM-PY3_bvitoria",
+ "language": "python",
+ "argv": [
+ "singularity", "exec", "/users/bvitoria/workspace/hi_im-py3.sif", "/anaconda3/bin/python",
+ "-m",
+ "ipykernel_launcher",
+ "-f",
+ "{connection_file}"
+]
+}

@@ -55,7 +55,7 @@
 
 ### WEEK 8: 30 of april - 7 of may
 (*OBJECTIVES: quantify difference between values obtained in v0 and v1, run the complete code, see if paralelization is possible or if there are other faster methods, such as ones which use jacobian and hessian.*)
-- Rewrite the matrices that i have right now into a 2d matrix instead of 3d by collapsing the time x frequency dimensions into a single dimension of pixels, so that the final simulations factors are pixels x alphas and observations are just pixels (1d array, much more memory efficient)!!! 
+- Rewrite the matrices that i have right now into a 2d matrix instead of 3d by collapsing the time x frequency dimensions into a single dimension of pixels, so that the final simulations factors are pixels x alphas and observations are just pixels (1d array, much more memory efficient)!
 
 ### WEEK 9: 7 - 14 of may
 (*OBJECTIVES: Since this problem is essentially minimizing a system of equations A.alpha - b, it seems to be possible to use least squares directly (instead of through optimization algorithms). It might save a lot of time, so I'm going to rewrite the problem for the constellations using this paradigm and check if they recover the same alphas.*)
@@ -70,13 +70,27 @@
 - Changed `lsq_linear` to `nnls` since that is the boundary condition that we want and it uses a more specialized code; the results in *v2* remained the same. 
 - Wrote *v3*, which uses this new optimization with all of the satellites; using `nnls` the code went from 30mins to 3mins. Generated all of the results. 
 
-### WEEK 11: 21 - 28 of may
-(*OBJECTIVES: --*)
+### WEEK 11+12: 21 - 4 of june
+(*OBJECTIVES: Break to complete some Uni work*)
 
-### WEEK 12: 28 of may - 2 of june
-(*OBJECTIVES: Confirmar cenas da Iara em que alguns sinais são zero; ver se com as priors da Iara fica bem na mesma; tentar ver a correspondência com os satélites de cada constelação. Matriz de Fisher para estimar os erros? - não fazer agora.*) 
-- TO DO: Give identifiers to each signal within a constellation (can be just "A","B","C",etc if there are no universal names for each signal); check if the signals between constellations are completely different or if there is some overlap.
-- TO DO: Create a catalog of satellites, their constellation, their generation, and the signals that they have (can be a string of the signals separated by commas, or can be several columns with True/False for every signal). Later, change the code on N2 so that it uses this catalog to create the final catalog of signals to use. 
-- TO DO: Create new (and better) visualizations - try other types of graphs, select by constellation or by signal, select by satellite and check all characteristics of a given satellite (beam response map, signal curve, alpha values, final addition to the 1D and 2D plots). 
-- TO DO: Compare the results of alphas before and after and check for discrepancies - if the alpha is zero in a constellation and now all alphas in each satellite of that constellation are zero as well; if the alphas that are huge correspond to high values of alphas before (that now are all joined in 1 or 2 satellites).
-- TO DO: Check if the generation information that we have matches the fitted alphas. 
+### WEEK 13: 4 - 11 of june
+(*OBJECTIVES: Confirmar cenas da Iara em que alguns sinais são zero; ver se com as priors da Iara fica bem na mesma; tentar ver a correspondência com os satélites de cada constelação. Matriz de Fisher para estimar os erros? - não fazer agora.*)  
+- Created a catalog of satellites and generations in each constellation - complete guide (includes satellites that have been decommisioned since), with several IDs, and whether they are present in Brandon and Iara's work. Currently incomplete.
+- Created a catalog of constellation signals - complete guide, with modulation, rate, and central frequency, and whether they match Brandon's specification. Currently incomplete.
+
+### WEEK 14: 11 - 18 of june
+(*OBJETIVES: Continuar semana anterior*)
+- Corrected PSD models in file *psd_models*; several of them were incomplete or used approximate formulas (but within the chosen frequency range all remains approximately the same).
+- Continued work on satellite and signal catalog; currently missing just SBAS satellites and signals.
+- Rewrote *psd_models.py* file with more accurate signals (added MBOC and lumped CBOC and TMBOC with it, and corrected BOC and BOCcos) and tested it against the old signals - differences are in the order of 1% max in some specific cases and wavelengths but should be fine overall.
+- TO DO: Create new (and better) visualizations - try other types of graphs, select by constellation or by signal, select by satellite and check all characteristics of a given satellite (beam response map, signal curve, alpha values, final addition to the 1D and 2D plots).
+
+### WEEK 15: 18 - 25 of june
+- Finished satellite and signal catalog (up-to-date) and added to directory in the */tables/* folder.
+- Created a catalog of *k* numbers of each GLONASS satellite (relevant for some specific signals for which the central frequency is not equal but has an offset in each satellite given by *k*); this is correct only for the specific date of the observation of February 25, 2019.
+- Updated HI_IM-PY2 and HI_IM-PY3 kernels: they needed to be reinstated (probably after ILIFU was up again) and the singularity files have been moved to new directories. For py2 it was just about changing the filename, but for py3 the singularity was seemingly not updated and had an old file format that required me to create a new copy of the singularity file in my own personal directory.
+- Corrected the whole setup process, which I'll later put in a new README file for the directory.
+- QUESTION: With this way to compute that garantees a global minimum, isn't it better to keep the amplitudes completely neutral in order to understand if the alpha values make sense physically?
+- QUESTION: Is HI_IM-PY2 and 3 working for everyone but me??
+- TO DO: I don't know which of the BeiDou-3 1M (S?) satellite was the one crossing the sky. Maybe can see its TLE directly and don't need to re-do the whole step of creating the angular maps of each satellite!
+- TO DO (EVENTUALLY): Alter N2 part of the code in order to get information from the correct Celestrak files with all of the satellites (not just "working" satellites), and in general rewrite N2.

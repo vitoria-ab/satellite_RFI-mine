@@ -1,0 +1,11 @@
+{
+ "display_name": "HI_IM-PY2_bvitoria",
+ "language": "python",
+ "argv": [
+ "singularity", "exec", "/software/astro/containers/hi_im-latest.sif", "/anaconda2/bin/python",
+ "-m",
+ "ipykernel_launcher",
+ "-f",
+ "{connection_file}"
+]
+}
