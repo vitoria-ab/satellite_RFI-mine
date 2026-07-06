@@ -12,12 +12,17 @@ Functions
 - CBOC = CBOC(old); now same as MBOC.
 """
 
+# ----------------------------------------------- #
+## ------------------- IMPORTS ----------------- ##
+# ----------------------------------------------- #
 
-## --------------- IMPORTS --------------- ##
 import numpy as np
 
 
-## --------------- FUNCTIONS --------------- ##
+# ----------------------------------------------- #
+## ------------------ FUNCTIONS ---------------- ##
+# ----------------------------------------------- #
+
 def BPSK(f, nc, f0=1.023):
     """
     Binary Phase Switch Keying PSD (Springer page 107).
@@ -40,7 +45,8 @@ def BPSK(f, nc, f0=1.023):
     return Tc * np.sinc(f*Tc)**2
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def BOC(f, ns, nc, f0=1.023):
     """
     Binary Offset Carrier PSD (Spring page 110).
@@ -81,7 +87,8 @@ def BOC(f, ns, nc, f0=1.023):
     return (nc*f0)/np.pi**2 * temp**2
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def BOCcos(f, ns, nc, f0=1.023):
     """
     Cosine Binary Offset Carrier PSD (Springer page 110). 
@@ -115,7 +122,8 @@ def BOCcos(f, ns, nc, f0=1.023):
     return Pabs**2
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def MBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' 
     Multiplexed Binary Offset Carrier PSD (Springer page 112);
@@ -145,19 +153,22 @@ def MBOC(f, nsA, nsB, ratio, f0=1.023):
     return term1 + term2
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def CBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' Composite Binary Offset Carrier PDS; returns MBOC PSD. '''
     return MBOC(f, nsA, nsB, ratio, f0)
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def TMBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' Time-multiplexed Binary Offset Carrier PDS; returns MBOC PSD. '''
     return MBOC(f, nsA, nsB, ratio, f0)
 
 
-## ---------------------------------------- ##
+# ----------------------------------------------- #
+
 def AltBOC(f, ns, nc, f0=1.023):
     ''' 
     Alternative Binary Offset Carrier PDS (Springer page 113; source is
@@ -192,3 +203,5 @@ def AltBOC(f, ns, nc, f0=1.023):
     term3 = np.cos(arg2)**2 - np.cos(arg2) - 2*np.cos(arg2)*np.cos(arg2/2) + 2
     return term1*term2*term3
 
+
+# ----------------------------------------------- #

@@ -1,11 +1,3 @@
-"""
-Defines the simulation object and its functions. 
-
-Functions
----------
-- SatelliteSimulation (class)
-- ADD HERE OLD SIMULATION WITH CONSTELLATIONS!!
-"""
 
 # ----------------------------------------------- #
 ## ------------------- IMPORTS ----------------- ##
@@ -49,6 +41,7 @@ class SatelliteSimulation:
     Functions (external)
     ---------
     __init__: Initializes the simulation instance.
+    use_observations : Includes observations in the object.
     use_mask: Creates a mask given the parameters.
     simulate: Calculates the simulation for a given set of alpha values.
     simulate_withmask: Same as simulate, but applies the mask (necessary when we are only visualizing results).
@@ -67,8 +60,8 @@ class SatelliteSimulation:
         if verbose:  print("Getting catalog...\n - Number of signals in satellite catalog: ",end="")
         catalog = pd.read_csv(path_catalog, header=0, engine="python")
         if verbose:  print(f"{len(catalog)} (initial), ",end="")
-        catalog = catalog[catalog["Frequency[MHz]"] >= freq_slice[0]]
-        catalog = catalog[catalog["Frequency[MHz]"] <= freq_slice[1]]
+        catalog = catalog[catalog["Frequency(MHz)"] >= freq_slice[0]]
+        catalog = catalog[catalog["Frequency(MHz)"] <= freq_slice[1]]
         if verbose:  print(f"{len(catalog)} (final).")
         self.catalog = catalog
 
@@ -95,10 +88,11 @@ class SatelliteSimulation:
             print(f" - Size of Tb_factors: {self.Tb_factors.nbytes / 1024**3:.3f} GB")
 
         # counting number of signals in each satellite and starting index of satellites
-        self.n_signals = np.array([len(catalog[catalog["Sat"]==s]) for s in sats])
+        self.n_signals = np.array([len(catalog[catalog["NORAD ID"]==ID]) for ID in sats])
         self.index_sats = np.concatenate(([0], np.cumsum(self.n_signals)[:-1]))
         if verbose:  print("Starting index of satellites: ", self.index_sats)
         self.tmp = np.empty_like(self.Tb_factors)  # <-- useful to spare memory in simulate
+        self.tmp2 = np.empty((len(sats),np.shape(self.Tb_factors)[1]))  # <-- useful to spare memory in simulate
         return
         
     # ----------------------------------------------- #
@@ -174,7 +168,7 @@ class SatelliteSimulation:
 
         # calculating simulation
         np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
-        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0)
+        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
         self.sim = np.einsum('kij,ki->ij', self.sat_beam, power_term)
         
     # ----------------------------------------------- #
@@ -183,7 +177,8 @@ class SatelliteSimulation:
         ''' Calculates the simulation using the alphas given, and masking the simulation (if not done prior!). '''
 
         # calculating simulation
-        power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_sats, axis=0)
+        np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
+        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
         self.sim = np.einsum('kij,ki->ij', self.sat_beam*self.mask, power_term)
 
     # ----------------------------------------------- #
@@ -204,55 +199,53 @@ class SatelliteSimulation:
         ''' Returns the array of brightness temperature factors (functions 
         of frequency) for all signals. '''
 
-        P = self.catalog["P_t (dBW)"] 
-        G = self.catalog["G_t (dBi)"] 
+        P = self.catalog["P(dBW)"] 
+        G = self.catalog["G(dBi)"] 
     
         # calculating emitted power
-        value = 10**(P/10 + G/10) / (4*np.pi)
-        power = np.where(P*G != 0, value, 0)
-        SP = np.zeros( (len(self.catalog), len(self.frequency)) )
+        power = 10**(P/10 + G/10) / (4*np.pi)
+        freq = self.frequency[self.ifreq[0]:self.ifreq[1]]  # <-- already cut from the beginning
+        SP = np.zeros( (len(self.catalog), len(freq)) )
          
         # looping through each signal of the constellation
-        for k,i in enumerate(self.catalog.index):
+        for i,ind in enumerate(self.catalog.index):
             
             # getting information
-            m = self.catalog["Modulation"][i]
-            fc = self.catalog["Frequency[MHz]"][i]
+            m = self.catalog["Modulation"][ind]
+            fc = self.catalog["Frequency(MHz)"][ind]
             mtype = m.split("(")[0]
             params = m[m.find("(")+1 : m.find(")")].split(",")
     
             # calculating modulations
             if mtype=="BPSK":
                 nc = float(params[0])
-                psd = psd_models.BPSK(self.frequency-fc, nc)
+                psd = psd_models.BPSK(freq-fc, nc)
             elif mtype=="BOCcos":
                 ns, nc = map(float, params)
-                psd = psd_models.BOCcos(self.frequency-fc, ns, nc)
+                psd = psd_models.BOCcos(freq-fc, ns, nc)
             elif mtype=="AltBOC":
                 ns, nc = map(float, params)
-                psd = psd_models.AltBOC(self.frequency-fc, ns, nc)
+                psd = psd_models.AltBOC(freq-fc, ns, nc)
             elif mtype=="MBOC":
                 nsA, nsB, ratio = [_floaty(x) for x in params]
-                psd = psd_models.TMBOC(self.frequency-fc, nsA, nsB, ratio)
+                psd = psd_models.TMBOC(freq-fc, nsA, nsB, ratio)
             elif mtype=="BOC":
                 ns, nc = map(float, params)
-                psd = psd_models.BOC(self.frequency-fc, ns, nc)
+                psd = psd_models.BOC(freq-fc, ns, nc)
             else:
                 print("Error: Signal modulation {} is not valid.".format(mtype))
             psd = np.nan_to_num(psd, nan=0)
     
             # indexes are different because csv starts at 1, not 0
-            SP[k] = power[k]*psd
+            SP[i] = power[ind]*psd
     
         # getting terms from the equation
         delta_nu = 0.2 * 1e6  # <-- channel width in Hz (extra)
-        factor = cc.c.value**2 / (cc.k_B.value * 4*np.pi * (self.frequency*1e6)**2)
+        factor = cc.c.value**2 / (cc.k_B.value * 4*np.pi * (freq*1e6)**2)
         gain_factor = 1e4  # <-- gain factor from Harpar paper (extra)
     
-        # final result in mK and cutting slice
-        Tb_factors = SP * (factor*gain_factor/delta_nu)
-        Tb_factors = Tb_factors[:, self.ifreq[0]:self.ifreq[1]]
-        return Tb_factors
+        # final result in mK
+        return SP * factor * gain_factor / delta_nu
 
     # ----------------------------------------------- #
 
