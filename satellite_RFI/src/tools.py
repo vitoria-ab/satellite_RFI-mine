@@ -1,5 +1,5 @@
 """
-Python file which holds definitions that can be useful.
+Old file, part of this is being rewritten into tle_mapping.py (other things might be from part 1).
 """
 
 # Packages ---------------------------------------------------------------

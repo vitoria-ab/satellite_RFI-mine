@@ -1,3 +1,8 @@
+"""
+Old file, currently being rewritten into tle_mapping.py and later deleted.
+"""
+
+
 from astropy import units as u
 from skyfield.api import Topos, load
 import numpy as np
@@ -111,12 +116,7 @@ def get_sat_coods(sats, obs_time_list, obs_location):
     coords_rd = []
 
     pool = Pool(16)
-    r = pool.map(
-        partial(
-            __get_sat_coord__, sats=sats, obs_time=obs_time, obs_location=obs_location
-        ),
-        sats.keys(),
-    )
+    r = pool.map(partial(__get_sat_coord__,sats=sats,obs_time=obs_time,obs_location=obs_location),sats.keys(),)
     for _r in r:
         coords.append(_r[0][0])
         name.append(_r[1])
@@ -193,6 +193,7 @@ def remove_sats_below_horizen(sats, st_time, ed_time, location):
     return sats, tlist
 
 
+# XXXXXXXXXXXXXXXXXXXXX
 class Satellite_Catalogue(object):
     def __init__(self, source_url=None, sats_type=None, reload=False):
 

@@ -1,27 +1,27 @@
 """
-Defines functions for the Power Spectrum Density (PSD) models for the GNSS satellite signals; Sxx = |P|^2 given in Eq. 3. Information comes primarily from 'Springer Handbook of GNSS' (pages 107-113) and from several Navipedia pages. Instead of using directly chip rates (given in the signal catalog), they use the modulation specifiers nc in order to derive the chip rate (it's more numerically exact, using integers).
+Defines functions for the Power Spectrum Density (PSD) models for the GNSS satellite signals; Sxx = |P|^2 given in Eq. 3. Information comes primarily from 'Springer Handbook of GNSS' (pages 107-113) and from several Navipedia pages. Instead of using directly chip rates (given in the signal catalog), they use the modulation specifiers nc in order to derive the chip rate (it's more numerically exact).
 
 Functions
 ---------
-- BPSK = BPSK(old); the same. 
-- BOC = BOC(old); now uses directly Springer's formula.
-- BOCcos = BOCc(old); now uses directly Springer's formula.
-- AltBOC = altBOC(old); the same.
-- MBOC = MBOC(old); now uses Navipedia's formula.
-- TMBOC = TMBOC(old); now same as MBOC.
-- CBOC = CBOC(old); now same as MBOC.
+BPSK(f, nc, f0=1.023)
+BOC(f, ns, nc, f0=1.023)
+BOCcos(f, ns, nc, f0=1.023)
+MBOC(f, nsA, nsB, ratio, f0=1.023)
+CBOC(f, nsA, nsB, ratio, f0=1.023)
+TMBOC(f, nsA, nsB, ratio, f0=1.023)
+AltBOC(f, ns, nc, f0=1.023)
 """
 
-# ----------------------------------------------- #
-## ------------------- IMPORTS ----------------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## ------------------- IMPORTS -------------------- ##
+# -------------------------------------------------- #
 
 import numpy as np
 
 
-# ----------------------------------------------- #
-## ------------------ FUNCTIONS ---------------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## ------------------- FUNCTIONS ------------------ ##
+# -------------------------------------------------- #
 
 def BPSK(f, nc, f0=1.023):
     """
@@ -45,7 +45,7 @@ def BPSK(f, nc, f0=1.023):
     return Tc * np.sinc(f*Tc)**2
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def BOC(f, ns, nc, f0=1.023):
     """
@@ -87,7 +87,7 @@ def BOC(f, ns, nc, f0=1.023):
     return (nc*f0)/np.pi**2 * temp**2
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def BOCcos(f, ns, nc, f0=1.023):
     """
@@ -122,7 +122,7 @@ def BOCcos(f, ns, nc, f0=1.023):
     return Pabs**2
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def MBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' 
@@ -153,21 +153,21 @@ def MBOC(f, nsA, nsB, ratio, f0=1.023):
     return term1 + term2
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def CBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' Composite Binary Offset Carrier PDS; returns MBOC PSD. '''
     return MBOC(f, nsA, nsB, ratio, f0)
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def TMBOC(f, nsA, nsB, ratio, f0=1.023):
     ''' Time-multiplexed Binary Offset Carrier PDS; returns MBOC PSD. '''
     return MBOC(f, nsA, nsB, ratio, f0)
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #
 
 def AltBOC(f, ns, nc, f0=1.023):
     ''' 
@@ -204,4 +204,4 @@ def AltBOC(f, ns, nc, f0=1.023):
     return term1*term2*term3
 
 
-# ----------------------------------------------- #
+# -------------------------------------------------- #

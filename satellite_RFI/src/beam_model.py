@@ -1,36 +1,107 @@
-###################################################
-# FILE: beam_model = beam_model(old); TO REWRITE!!
-# Functions for the beam model of the satellites
-#   - _get_Khans = _Khans_beam_model(old)
-#   - Khans_beam_model
-#   - REMOVED = get_OmegaA_from_Khans_beam(old)
-#   - REMOVED = get_fwhm_from_Khans_beam(old)
-#   - REMOVED = get_factor_from_Khans_beam(old)
-#   - Cosine_beam_model
-#   - unsorted_interp2d
-#   - emss_beam
-#   - khan_emss_beam
-#   - khan_emss_beam_model
-###################################################
+"""
+Defines functions to simulate MeerKAT's beam model; haven't rewritten most of these, since the most useful one (EMSS beam model) is in a specific ILIFU directory that I can't reach.
+
+Functions
+---------
+_get_Khans(phi=None)
+Khans_beam_model(freq=None, theta=None)
+Cosine_beam_model(freq, dish_diameter=13.5)
+emss_beam(freq, theta)
+emss_beam_model(f)
+khan_emss_beam(freqs, theta)
+khan_emss_beam_model(f)
+
+Classes
+-------
+unsorted_interp2d(interp2d): 
+    __call__
+"""
 
 
-## ----- IMPORTS ----- ##
+# -------------------------------------------------- #
+## -------------------- IMPORTS ------------------- ##
+# -------------------------------------------------- #
+
 import numpy as np
 from astropy.io import fits
 from scipy.interpolate import interp1d, interp2d
+from scipy.interpolate import RectBivariateSpline
 import pickle
 
 
-## ----- FUNCTIONS FOR KHAN'S BEAM MODEL ----- ##
-# - _GET_KHANS
+# -------------------------------------------------- #
+## ------------------- FUNCTIONS ------------------ ##
+# -------------------------------------------------- #
+
+def EMSS_interpolator():
+    ''' Gets the EMSS beam model data and creates an interpolator;
+    to get the best performance, create this function once and pass
+    it to the EMSS function. '''
+    
+    # getting data
+    fname = "/idia/projects/hi_im/MeerKAT_beams/v4/MK_Lband_1D_Beam_data"
+    with open(fname, "rb") as f:
+        data = pickle.load(f, encoding="latin1")
+    freq_beam = data["freq"]
+    theta_beam = data["th"]
+    
+    # getting averaged and normalized polarization
+    Pv = data["P_v_th"]
+    Ph = data["P_h_th"]
+    P = (Pv/Pv.max(axis=1,keepdims=True) + Ph/Ph.max(axis=1,keepdims=True)) / 2
+    
+    # creating interpolator in the (fxtheta) grid
+    interp = RectBivariateSpline(freq_beam, theta_beam, P, kx=3, ky=3)
+    return interp
+
+
+# -------------------------------------------------- #
+
+def EMSS(frequency, theta, _interp=None):
+    ''' Calculates the EMSS beam model for MeerKAT interpolated
+    in a (freq x theta) grid. 
+    
+    Parameters
+    ----------
+    frequency : ndarray
+        List of frequencies (MHz).
+    theta : ndarray or np.MaskedArray
+        List of time instances (s).
+    interp : func (default None)
+        The interpolation function (retrieved from the data); if
+        it was not called beforehand, EMSS_interpolator is used.
+    
+    Returns
+    -------
+    beam : ndarray or np.MaskedArray
+        (freq x theta) matrix of the EMSS beam.
+    '''
+    # getting interpolator if necessary
+    if _interp is None:  _interp = _EMSS_interpolator()
+
+    # removing the mask (and later re-apply)
+    is_masked = np.ma.isMaskedArray(theta)
+    if is_masked:
+        mask = theta.mask;  theta = theta.data
+
+    # calculating funcion at the grid and re-applying mask
+    Xs, Ys = np.meshgrid(frequency, theta, indexing="ij")
+    beam = _interp(Xs.ravel(),Ys.ravel(),grid=False).reshape(Xs.shape)
+    if is_masked:  
+        beam = np.ma.array(beam, mask=np.broadcast_to(mask,beam.shape))
+    return beam
+
+
+
 def _get_Khans(phi=None):
-    ''' Recover Khan's beam model from the file for a given polarization (internal function).
+    ''' Recover Khan's beam model from the file for a given 
+    polarization (internal function).
     
     Parameters
     ----------
     phi : string or None
-        Polarization; for None it averages the behavior on both polarizations
-        (options: None, "HH", or "VV").
+        Polarization; for None it averages the behavior on both 
+        polarizations (options: None, "HH", or "VV").
     
     Returns
     -------
@@ -70,7 +141,8 @@ def _get_Khans(phi=None):
     return beam_mean, _freq, _theta
 
 
-# - KHANS_BEAM_MODEL
+# -------------------------------------------------- #
+
 def Khans_beam_model(freq=None, theta=None):
     ''' Returns Khan's beam model interpolated as a 2d or 1d function.
     
@@ -102,8 +174,8 @@ def Khans_beam_model(freq=None, theta=None):
         return beam_func
 
 
-## ----- FUNCTIONS FOR COSINE BEAM MODEL ----- ##
-# - COSINE_BEAM_MODEL
+# -------------------------------------------------- #
+
 def Cosine_beam_model(freq, dish_diameter=13.5):
     ''' Returns cosine beam model, for a given frequency (in MHz).
     
@@ -137,7 +209,7 @@ def Cosine_beam_model(freq, dish_diameter=13.5):
     return cos_beam
 
 
-## ----- FUNCTIONS FOR EMSS BEAM MODEL ----- ##
+# -------------------------------------------------- #
 
 class unsorted_interp2d(interp2d):
     """
@@ -149,7 +221,8 @@ class unsorted_interp2d(interp2d):
         return interp2d.__call__(self, x, y, dx=dx, dy=dy)[:, unsorted_idxs]
 
 
-# - EMSS_BEAM
+# -------------------------------------------------- #
+
 def emss_beam(freq, theta):
     """
     Using the EMSS beam function, an interpolation that takes in:
@@ -198,13 +271,14 @@ def emss_beam(freq, theta):
     return interp
 
 
+# -------------------------------------------------- #
+
 def emss_beam_model(f):
     """Takes in frequency values and creates a function for lambda values"""
     return lambda th: emss_beam(freq=f, theta=th)
 
 
-# ----------------------------------------------------------------------------------------------------
-
+# -------------------------------------------------- #
 
 def khan_emss_beam(freqs, theta):
     """
@@ -235,9 +309,11 @@ def khan_emss_beam(freqs, theta):
     return khan_emss
 
 
+# -------------------------------------------------- #
+
 def khan_emss_beam_model(f):
     """Takes in the frequency values and and returns a function for theta values."""
     return lambda th: khan_emss_beam(freqs=f, theta=th)
 
 
-# ----------------------------------------------------------------------------------------------------
+# -------------------------------------------------- #

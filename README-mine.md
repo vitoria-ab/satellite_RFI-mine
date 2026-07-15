@@ -4,34 +4,38 @@
 - **v1**: Satellite paradigm, recovering constellation results (uses a matrix for each satellite, but imposes that alphas of satellites within the same constellations are the same); results are good.
 - **v2**: Constellation paradigm (uses a matrix for each constellation), but using `lsq_linear`; results are good.
 - **v3**: Satellite paradigm using `nnls`, with new results; results are generally good, but need to be inspected.
-- **v4**: Satellite paradigm with a restructured code and updated signal catalog; results are worse, currently inspecting if it is due to the new signal catalog or due to the code changes implemented.
-- **v5temp**: Temporary version to check step-by-step which change was responsible for the worse results.
+- **v4**: Satellite paradigm with a restructured code and some very minor differences; results are practically the same as v3 with some improved peaks.
+- **v5**: Satellite paradigm with the updated catalog; results are worse in several aspects which might be due to part 2 of the code having some weird satbeams.
+- **v6**: Satellite paradigm with the updated catalog and improved satbeam maps; results are better than v5 but still have several weird aspects (which are now solely due to the catalog lacking necessary signals).
+- **v7**: Satellite paradigm with the old catalog and improved satbeam maps, for comparison with v6.
 
-### Files in sattelite_RFI:
-(*These are the files from satellite_RFI; tried to keep the same files and structure and just rewrite for clarity and for faster code.*)
+### Files in `sattelite_RFI`:
 - **attenuation**: File with attenuation functions `tophat_oob` and `gaussian_oob`; rewritten for clarity and celerity. However, all of the mentions to attenuation were removed from the code so this currently is not used!
 - **beam_model**: File with different telescope beam models, either analytical or from a file; rewritten.
 - **check_satellite**: Old file, not rewritten.
 - **data_reduction**: Old file, not rewritten.
 - **Generating_Calibrated_Data**: Old file, not rewritten.
 - **psd_models**: File with the Power Spectrum Density models for the GNSS satellite signals; rewritten.
-- **rewrite_tle**: Old file, not rewritten.
-- **satellite_extract**: Old file, not rewritten.
 - **simulation_cons**: File with the simulation object, which gathers information calculated in the different files and performs the final calculations for the fitting; completely rewritten for clarity and celerity. Used in v0 and v2.
 - **simulation**: Rewrite of simulation_cons but using the paradigm of individual satellites instead of constellations. Used in v1 and v3.
-- **tle_sat_download**: Old file, not rewritten.
-- **tools**: Old file, not rewritten. 
+- **simulation_NC**: Rewrite of simulations but using the new catalog.
+- **TLE_mapping**: File with functions to map TLEs to angular positions, and also holds the SatBeamCalculator object; rewritten.
+- - **tools**: Old file, not rewritten. 
 - **wiggleZ_area**: Old file, not rewritten. 
 
-### Notebooks:
-(*These are the notebooks that i created, based on the existing notebooks, which i didn't touch.*)
-- **N2a_create_catalogs**: Notebook that creates files with individual satellite information, instead of the current files with general information of each constellation; creates the final signal catalog (with the signals in each satellite) and the new beam response dictionary (which now opens faster).
-- **N3_fitting**: Notebook that fits the simulation to the data, using specific masking parameters.
-- **N4_graphs**: Notebook that shows the graphs for the data for all of the masks chosen; doesn't show time intervals yet!
-- **\param_import**: Folder with the files *parameters.py* which specify the general parameters used (masking is those inside the notebook itself).
-- **\results**: Folder with generated results, with subfolders for each version of the code that is created.
-- **\previousNBs**: Notebooks from previous versions (v0,v1 etc) which have been completed and don't need to be touched anymore.
-- **\data**: Folder with necessary catalogs, which includes: *satellites.csv* (list of satellites with operational timeline, ill-working signals, generation); *signals.csv* (list of signals with constellation, generations, and physical properties); *knumbers_25022019.csv* (list of active GLONASS satellites and their respective $k$ numbers); *catalog_{block}.csv* (final signal catalog with only the satellites that are known to appear in the observations); and *satbeams_{block}_{beam}_{fs}-{fe}.pkl* (dictionary of beam responses for each satellite that appears in the observation with these specifications).
+### Files in `Notebooks`:
+- **N2_angular_positions**: Calculates the satellite angular positions, dependent on the frequency range, the telescope beam model, and on the satellites present on the TLEs of the given date. Only versions >=v6 use these satbeams, the older versions used the old information pre-calculated (which have some errors, with slightly wrong satbeam maps and regions present that should be cut from the matrices). Needs to be rewritten for clarity and better divided into TLE grabbing and satbeam calculation.
+- Notebooks for each version of the code:
+    - **{version}_N2a_create_catalogs**: Crosses the total signal list with the existing satellites in the satbeam file, and creates the final signal catalog with only the satellites present.
+    - **{version}_N3a_fitting**: Fits the simulation to the data.
+    - **{version}_N3b_graphs**: Shows the graphs present in the article.
+    - **{version}_N3c_analysis**: Further analysis on the alphas obtained.
+- Folders with additional information:
+    - **initialization/**: Has the files *parameters.py* (specifies the general observation information) and *imports.py* (general imports).
+    - **results/**: Generated results, with subfolders for each version of the code that is created.
+    - **previousNBs/**: Notebooks from previous versions (v0,v1 etc) which aren't useful anymore.
+    - **simulation_data/**: Folder with necessary catalogs, which includes: *satellites.csv* (list of satellites with operational timeline, ill-working signals, generation); *signals.csv* (list of signals with constellation, generations, and physical properties); *knumbers_{block}.csv* (list of active GLONASS satellites and their respective $k$ numbers); *catalog_{block}.csv* (final signal catalog with only the satellites that are known to appear in the observations); *satbeams_{block}_{beam}_{fs}-{fe}.pkl* (dictionary of beam responses for each satellite that appears in the observation with these specifications); and *nearby_{block}.pkl* (dictionary with the time indexes where satellites were nearer than a given angle).
+    - **old_folders**: Old stuff from Brandon.
 
 
 # Requirements to run
@@ -123,9 +127,16 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 
 ### WEEK 17: 2 - 9 of july
 (*OBJECTIVE: Implementar código com as novas listas*)
-- Altered code extensively in *v4*: changed some variable names, re-organized so that the observations can be given at a later step (instead of being automatically initialized with observations), and re-wrote the code that creates matrix A.
-- Re-wrote the code so that it uses the new signal catalog.
-- Generated results - these are generally worse than previous fittings, which could be due to wrong code, or due to a wrong signal catalog, or just due to a more accurate (but worse) fitting (since now we have almost half of the signals with which to fit the data).
-- CURRENTLY: Re-checking every change I made using *v5temp*, where at each step I generate the results and check if they match the known (assumed correct) fit obtained in *v3*. 
-- TO DO: Rewrite the code so that it uses the correct batch workflow instead of running in jupyter notebooks.
-- TO DO: Add time-slice graphs to N4.
+- Altered code extensively in *v4*: changed some variable names, re-organized so that the observations can be given at a later step (instead of being automatically initialized with observations), and re-wrote the code that creates matrix A; checked results and they are almost the same as v3.
+- Created *v5* which uses the new signal catalog; results are quite worse than in v4 which might be due to a heavier dependence in some weird maps from satbeam.
+- Added time-slice graphs to N4.
+- Created *N2_angular_positions.ipynb* which will perform part 2 of the code; currently wrote the first part (TLE download from celestrak and initial formatting), and the beginning of the second (satellite angular positions compared to the telescope). I'm also writing complementary code in *tle_mapping.py* (which will have stuff from *tools.py* and from *check_satellite.py*).
+
+### WEEK 18: 9 - 16 of july
+(*OBJECTIVE: Implementar parte 2 do código, escrever abstract para ENAA*)
+- Wrote abstract for ENAA.
+- Finished *N2_angular_positions.ipynb* and *tle_mapping.py* - the resulting satbeam matrices are slightly different from those obtained previously which is probably due to some incorrect coding, and now the satellites further than 100deg and below the horizon are correctly filtered out of the list.
+- Corrected satellite names in the catalog. 
+- Created **v6**, which uses the new list + new satbeam maps, and results are slightly better but still worse than with the old list. Specifically, this didn't seem to alter the fact that we have alphas with >50, and it made some peaks more agreeable but is still ill-fitted to data.
+- Organized the folders.
+- Created **v7**, which uses the old list + new satbeam maps for comparison with v6. The results are almost the same, except it has a small region where GLONASS should emit, and yet its best fits includes no GLONASS satellites! I think the best thing to do now would be to see which specific signals in v4 and v7 are responsible for the better fitting which we can't get in v6, and see if they correspond to some signal which we should have included but don't.

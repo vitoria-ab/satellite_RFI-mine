@@ -1,20 +1,31 @@
-###################################################
-# FILE: attenuation = attenuation_function(old)«
-###################################################
+"""
+Defines functions for attenuation in OOB (out-of-band) emission; currently not utilized in the general simulation.
+
+Functions
+---------
+tophat_oob(f, fi, band, level)
+gaussian_oob(f, fi, band, sigma)
+"""
 
 
-## ----- IMPORTS ----- ##
+# -------------------------------------------------- #
+## -------------------- IMPORTS ------------------- ##
+# -------------------------------------------------- #
+
 import numpy as np
 
 
-## ----- FUNCTIONS ----- ##
+# -------------------------------------------------- #
+## ------------------- FUNCTIONS ------------------ ##
+# -------------------------------------------------- #
+
 def tophat_oob(f, fi, band, level):
     """ Rectangular tophat function for out-of-band emission 
     (https://en.wikipedia.org/wiki/Rectangular_function). 
 
     Parameters
     ----------
-    f : array of floats
+    f : ndarray
         Frequency range.
     fi : float
         Central frequency of the band.
@@ -25,7 +36,7 @@ def tophat_oob(f, fi, band, level):
 
     Returns
     -------
-    final_values : array of floats
+    final_values : ndarray
         Final values after applying the tophat attenuation.
     """
 
@@ -34,6 +45,7 @@ def tophat_oob(f, fi, band, level):
     return final_values
 
 
+# -------------------------------------------------- #
 
 def gaussian_oob(f, fi, band, sigma):
     """ Creates a guassian rectangular window function where any values 
@@ -41,7 +53,7 @@ def gaussian_oob(f, fi, band, sigma):
 
     Parameters
     ----------
-    f : array of floats
+    f : ndarray
         Frequency range.
     fi : float
         Central frequency of the band.
@@ -52,7 +64,7 @@ def gaussian_oob(f, fi, band, sigma):
 
     Returns
     -------
-    final_values : array of floats
+    final_values : ndarray
         Final values after applying the gaussian attenuation.
     """
 
@@ -74,3 +86,4 @@ def gaussian_oob(f, fi, band, sigma):
     return final_values
 
 
+# -------------------------------------------------- #

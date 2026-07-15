@@ -1,7 +1,30 @@
+"""
+Defines the satellite simulation class, which aggregates all of the information so far. Considers the case where all satellites are treated equally within each constellation.
 
-# ----------------------------------------------- #
-## ------------------- IMPORTS ----------------- ##
-# ----------------------------------------------- #
+Functions
+---------
+_floaty(x)
+
+Classes
+-------
+SatelliteSimulation
+    __init__(self, block=None, use_data=True, path_data=None, path_beam=None, survey_info=None,
+    path_catalog=None, beam_model=None, freq_range=None, freq_slice=None, time_slice=None, 
+    include_cons=None, verbose=False)
+    create_mask(self, path_nearby=None, temperature=None, pix=None, apply=True, verbose=False)
+    execute(self, alphas)
+    execute_withmask(self, alphas)
+    optimize_alphas_LS(self, CF)
+    _cut_range(self, array, limits)
+    _filter_cons(self, cons, array, turn_numpy=False)
+    _get_beam_response(self, path_beam, beam_model, freq_range)
+    _get_observations(self, path_data)
+    _get_Tb_factors(self)
+"""
+
+# -------------------------------------------------- #
+## -------------------- IMPORTS ------------------- ##
+# -------------------------------------------------- #
 
 import pickle
 import pandas as pd
@@ -13,18 +36,19 @@ from satellite_RFI.src import psd_models
 from scipy.optimize import lsq_linear
 
 
-# ----------------------------------------------- #
-## ------------------ FUNCTIONS ---------------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## ------------------- FUNCTIONS ------------------ ##
+# -------------------------------------------------- #
 
 def _floaty(x):
     """ Auxiliary function for values stored as floats or fractions. """
     try:  return float(x)
     except ValueError:  return float(Fraction(x))
 
-# ----------------------------------------------- #
-## --------- CLASS SATELLITESIMULATION --------- ##
-# ----------------------------------------------- #
+
+# -------------------------------------------------- #
+## ---------- CLASS SatelliteSimulation ----------- ##
+# -------------------------------------------------- #
 
 class SatelliteSimulation:
     """
@@ -48,10 +72,11 @@ class SatelliteSimulation:
     update_alphas: Updates the internal catalog with the alpha values given.
     """
 
-    # ----------------------------------------------- #
+    # -------------------------------------------------- #
     
-    def __init__(self, block=None, use_data=True, path_data=None, path_beam=None, survey_info=None, path_catalog=None, 
-                 beam_model=None, freq_range=None, freq_slice=None, time_slice=None, include_cons=None, verbose=False):
+    def __init__(self, block=None, use_data=True, path_data=None, path_beam=None, survey_info=None,
+                 path_catalog=None, beam_model=None, freq_range=None, freq_slice=None, time_slice=None, 
+                 include_cons=None, verbose=False):
         ''' Initializes the simulation with some attributes and calculates everything that doesn't require alphas. '''
 
         # saving attributes
@@ -103,8 +128,9 @@ class SatelliteSimulation:
             self.observations = self.observations[:, self.itime[0]:self.itime[1]]
             self.observations_sat = self.observations_sat[:, self.itime[0]:self.itime[1]]
             self.observations_BG = self.observations_BG[:, self.itime[0]:self.itime[1]]
-        
-    # ----------------------------------------------- #
+
+    
+    # -------------------------------------------------- #
 
     def create_mask(self, path_nearby=None, temperature=None, pix=None, apply=True, verbose=False):
         ''' Creates the mask and applies itime to sat_beam and observations_sat. '''
@@ -151,8 +177,9 @@ class SatelliteSimulation:
             print(" - Size of simulated Tb_factors: ", np.shape(self.Tb_factors))  # <-- signals x frequency
             print(" - Size of simulated sat_beam: ", np.shape(self.sat_beam))  # <-- cons x frequency x time
             print(" - Size of observations: ", np.shape(self.observations))  # <-- frequency x time
-                
-    # ----------------------------------------------- #
+
+        
+    # -------------------------------------------------- #
     
     def execute(self, alphas):
         ''' Calculates the simulation using the alphas given. '''
@@ -161,7 +188,8 @@ class SatelliteSimulation:
         power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_cons, axis=0)
         self.simulation = np.einsum('kij,ki->ij', self.sat_beam, power_term)
 
-    # ----------------------------------------------- #
+        
+    # -------------------------------------------------- #
     
     def execute_withmask(self, alphas):
         ''' Calculates the simulation using the alphas given, and masking the simulation (if not done prior!). '''
@@ -170,7 +198,8 @@ class SatelliteSimulation:
         power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_cons, axis=0)
         self.simulation = np.einsum('kij,ki->ij', self.sat_beam*self.mask, power_term)
 
-    # ----------------------------------------------- #
+        
+    # -------------------------------------------------- #
 
     def optimize_alphas_LS(self, CF):  
         ''' Find optimal alphas with least squares weighted or not, 
@@ -201,7 +230,8 @@ class SatelliteSimulation:
         )
         return res
 
-    # ----------------------------------------------- #
+        
+    # -------------------------------------------------- #
 
     def _cut_range(self, array, limits):
         ''' Get array cut within the specified limits. '''
@@ -212,7 +242,8 @@ class SatelliteSimulation:
         else:  idx_end = np.where(array > limits[1])[0][0] + 1
         return [idx_start, idx_end]
 
-    # ----------------------------------------------- #
+    
+    # -------------------------------------------------- #
     
     def _filter_cons(self, cons, array, turn_numpy=False):
         ''' Filter constellation list based on the include_cons list, ordered with include_cons order. '''
@@ -227,7 +258,8 @@ class SatelliteSimulation:
         if turn_numpy:  return np.array(cons_new), np.array(array_new)
         return cons_new, array_new
 
-    # ----------------------------------------------- #
+        
+    # -------------------------------------------------- #
     
     def _get_beam_response(self, path_beam, beam_model, freq_range):
         ''' Get B/r^2 for each constellation (function of frequency and time). '''
@@ -241,7 +273,8 @@ class SatelliteSimulation:
         sat_beam = sat_beam[:, self.ifreq[0]:self.ifreq[1], :]
         return cons,sat_beam
 
-    # ----------------------------------------------- #
+    
+    # -------------------------------------------------- #
     
     def _get_observations(self, path_data):
         """ Obtain the calibrated TOD for the temperature and the noise. """
@@ -256,8 +289,9 @@ class SatelliteSimulation:
         observations_BG = observations_BG[self.ifreq[0]:self.ifreq[1], :]
         return observations, observations_BG
 
-    # ----------------------------------------------- #
-
+        
+    # -------------------------------------------------- #
+    
     def _get_Tb_factors(self):
         ''' Returns the array of brightness temperature factors (functions 
         of frequency) for all signals. '''
@@ -312,5 +346,6 @@ class SatelliteSimulation:
         Tb_factors = Tb_factors[:, self.ifreq[0]:self.ifreq[1]]
         return Tb_factors
 
-    # ----------------------------------------------- #
+
+    # -------------------------------------------------- #
 

@@ -1,3 +1,7 @@
+"""
+Old file, from part 1 of the code I think so I won't rewrite.
+"""
+
 import katdal
 import katsdptelstate
 

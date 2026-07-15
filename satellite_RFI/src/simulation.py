@@ -1,15 +1,26 @@
 """
-Defines the simulation object and its functions. 
+Defines the satellite simulation class, which aggregates all of the information so far. Considers the case where all satellites are treated individually, with the new catalog.
 
 Functions
 ---------
-- SatelliteSimulation (class)
-- ADD HERE OLD SIMULATION WITH CONSTELLATIONS!!
+_floaty(x)
+
+Classes
+-------
+SatelliteSimulation
+    __init__(self, survey_info=None, path_catalog=None, path_beam=None, freq_range=None, 
+    freq_slice=None, time_slice=None, verbose=False)
+    use_observations(self, path_observations, verbose=True)
+    use_mask(self, deg=None, temp=None, pix=None, apply=True, verbose=False)
+    simulate(self, alphas)
+    simulate_withmask(self, alphas)
+    _cut_range(self, array, limits)
+    _get_Tb_factors(self)
 """
 
-# ----------------------------------------------- #
-## ------------------- IMPORTS ----------------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## -------------------- IMPORTS ------------------- ##
+# -------------------------------------------------- #
 
 import pickle
 import pandas as pd
@@ -20,18 +31,18 @@ from fractions import Fraction
 from satellite_RFI.src import psd_models
 
 
-# ----------------------------------------------- #
-## ------------------ FUNCTIONS ---------------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## ------------------- FUNCTIONS ------------------ ##
+# -------------------------------------------------- #
 
 def _floaty(x):
     """ Auxiliary function for values stored as floats or fractions. """
     try:  return float(x)
     except ValueError:  return float(Fraction(x))
 
-# ----------------------------------------------- #
-## --------- CLASS SATELLITESIMULATION --------- ##
-# ----------------------------------------------- #
+# -------------------------------------------------- #
+## ---------- CLASS SatelliteSimulation ----------- ##
+# -------------------------------------------------- #
 
 class SatelliteSimulation:
     """
@@ -49,14 +60,15 @@ class SatelliteSimulation:
     Functions (external)
     ---------
     __init__: Initializes the simulation instance.
+    use_observations : Includes observations in the object.
     use_mask: Creates a mask given the parameters.
     simulate: Calculates the simulation for a given set of alpha values.
     simulate_withmask: Same as simulate, but applies the mask (necessary when we are only visualizing results).
     """
 
-    # ----------------------------------------------- #
+    # -------------------------------------------------- #
     
-    def __init__(self, path_data=None, survey_info=None, path_catalog=None, path_beam=None, freq_range=None, 
+    def __init__(self, survey_info=None, path_catalog=None, path_beam=None, freq_range=None, 
                  freq_slice=None, time_slice=None, verbose=False):
         ''' Initializes the simulation with some attributes and calculates everything that doesn't require alphas. '''
 
@@ -67,8 +79,8 @@ class SatelliteSimulation:
         if verbose:  print("Getting catalog...\n - Number of signals in satellite catalog: ",end="")
         catalog = pd.read_csv(path_catalog, header=0, engine="python")
         if verbose:  print(f"{len(catalog)} (initial), ",end="")
-        catalog = catalog[catalog["Frequency[MHz]"] >= freq_slice[0]]
-        catalog = catalog[catalog["Frequency[MHz]"] <= freq_slice[1]]
+        catalog = catalog[catalog["Frequency(MHz)"] >= freq_slice[0]]
+        catalog = catalog[catalog["Frequency(MHz)"] <= freq_slice[1]]
         if verbose:  print(f"{len(catalog)} (final).")
         self.catalog = catalog
 
@@ -82,9 +94,9 @@ class SatelliteSimulation:
         if verbose:  print("Getting beam response...")
         f2 = pickle.load(open(path_beam,"rb",), encoding="latin1")
         self.sat_beam = np.array(list(f2.values()))[:, self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]]
-        sats = list(f2.keys())
+        self.sats = list(f2.keys())
         if verbose:  
-            print(f" - Number of satellites present: {len(sats)}")
+            print(f" - Number of satellites present: {len(self.sats)}")
             print(f" - Size of sat_beam: {self.sat_beam.nbytes / 1024**3:.3f} GB")
         
         # getting satellite temperature factors for each signal (independent of alphas)
@@ -95,13 +107,15 @@ class SatelliteSimulation:
             print(f" - Size of Tb_factors: {self.Tb_factors.nbytes / 1024**3:.3f} GB")
 
         # counting number of signals in each satellite and starting index of satellites
-        self.n_signals = np.array([len(catalog[catalog["Sat"]==s]) for s in sats])
+        self.n_signals = np.array([len(catalog[catalog["NORAD ID"]==ID]) for ID in self.sats])
         self.index_sats = np.concatenate(([0], np.cumsum(self.n_signals)[:-1]))
-        if verbose:  print("Starting index of satellites: ", self.index_sats)
-        self.tmp = np.empty_like(self.Tb_factors)  # <-- useful to spare memory in simulate
+        #if verbose:  print("Starting index of satellites: ", self.index_sats)
+        self.tmp = np.empty_like(self.Tb_factors)  # <-- useful to spare memory
+        self.tmp2 = np.empty((len(self.sats),np.shape(self.Tb_factors)[1]))  # <-- useful to spare memory
         return
+
         
-    # ----------------------------------------------- #
+    # -------------------------------------------------- #
 
     def use_observations(self, path_observations, verbose=True):
         ''' Includes observational data in the simulation object. '''
@@ -118,21 +132,20 @@ class SatelliteSimulation:
             print(f" - Size of observational data: {self.obs.nbytes / 1024**3:.3f} GB")
             print(f" - Shape of observational data: {np.shape(self.obs)}")
         return
-        
-    # ----------------------------------------------- #
 
+        
+    # -------------------------------------------------- #
+    
     def use_mask(self, deg=None, temp=None, pix=None, apply=True, verbose=False):
         ''' Creates the mask and applies itime to sat_beam and obs_BGsub. '''
 
         # initial parameters
         mask = np.ones_like(self.obs, dtype=bool) 
 
-        # angular mask ---- not altered for individual satellites yet!!
+        # angular mask ("deg" is the times indexes where a satellites comes nearby)
         if deg is not None: 
-            f = pickle.load(open(deg, "rb"), encoding="latin1") 
-            nearby_cons, nearby_times = list(f.keys()), list(f.values())
             mask_degree = np.ones((len(self.frequency),len(self.time)), dtype=bool) 
-            for idx,c in enumerate(nearby_cons):  mask_degree[:, nearby_times[idx]] = False 
+            mask_degree[:, deg] = False
             mask_degree = mask_degree[self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]] 
             mask = (mask & mask_degree) 
 
@@ -160,34 +173,38 @@ class SatelliteSimulation:
             plt.title("Masked obs_BGsub")
             plt.colorbar()
             plt.show()
-            print("Size of arrays:")
-            print(" - Frequency: ", np.shape(self.frequency[self.ifreq[0]:self.ifreq[1]]))  # <-- frequency
-            print(" - Time: ", np.shape(self.time[self.itime[0]:self.itime[1]]))  # <-- time
-            print(" - Size of simulated Tb_factors: ", np.shape(self.Tb_factors))  # <-- signals x frequency
-            print(" - Size of simulated sat_beam: ", np.shape(self.sat_beam))  # <-- cons x frequency x time
-            print(" - Size of observations: ", np.shape(self.obs))  # <-- frequency x time
-                
-    # ----------------------------------------------- #
+            #print("Size of arrays:")
+            #print(" - Frequency: ", np.shape(self.frequency[self.ifreq[0]:self.ifreq[1]]))  # <-- frequency
+            #print(" - Time: ", np.shape(self.time[self.itime[0]:self.itime[1]]))  # <-- time
+            #print(" - Size of simulated Tb_factors: ", np.shape(self.Tb_factors))  # <-- signals x frequency
+            #print(" - Size of simulated sat_beam: ", np.shape(self.sat_beam))  # <-- cons x frequency x time
+            #print(" - Size of observations: ", np.shape(self.obs))  # <-- frequency x time
+
+            
+    # -------------------------------------------------- #
     
     def simulate(self, alphas):
         ''' Calculates the simulation using the alphas given. '''
 
         # calculating simulation
         np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
-        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0)
+        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
         self.sim = np.einsum('kij,ki->ij', self.sat_beam, power_term)
+
         
-    # ----------------------------------------------- #
+    # -------------------------------------------------- #
     
     def simulate_withmask(self, alphas):
         ''' Calculates the simulation using the alphas given, and masking the simulation (if not done prior!). '''
 
         # calculating simulation
-        power_term = np.add.reduceat(self.Tb_factors*alphas[:,np.newaxis], self.index_sats, axis=0)
+        np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
+        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
         self.sim = np.einsum('kij,ki->ij', self.sat_beam*self.mask, power_term)
 
-    # ----------------------------------------------- #
-
+    
+    # -------------------------------------------------- #
+    
     def _cut_range(self, array, limits):
         ''' Get array cut within the specified limits; for now, this way (which is a bit weird) will 
         have to do since the beam model is already pre-cut during N2 using this exact way. '''
@@ -198,61 +215,61 @@ class SatelliteSimulation:
         else:  idx_end = np.where(array > limits[1])[0][0] + 1
         return [idx_start, idx_end]
 
-    # ----------------------------------------------- #
-
+        
+    # -------------------------------------------------- #
+    
     def _get_Tb_factors(self):
         ''' Returns the array of brightness temperature factors (functions 
         of frequency) for all signals. '''
 
-        P = self.catalog["P_t (dBW)"] 
-        G = self.catalog["G_t (dBi)"] 
+        P = self.catalog["P(dBW)"] 
+        G = self.catalog["G(dBi)"] 
     
         # calculating emitted power
-        value = 10**(P/10 + G/10) / (4*np.pi)
-        power = np.where(P*G != 0, value, 0)
-        SP = np.zeros( (len(self.catalog), len(self.frequency)) )
+        power = 10**(P/10 + G/10) / (4*np.pi)
+        freq = self.frequency[self.ifreq[0]:self.ifreq[1]]  # <-- already cut from the beginning
+        SP = np.zeros( (len(self.catalog), len(freq)) )
          
         # looping through each signal of the constellation
-        for k,i in enumerate(self.catalog.index):
+        for i,ind in enumerate(self.catalog.index):
             
             # getting information
-            m = self.catalog["Modulation"][i]
-            fc = self.catalog["Frequency[MHz]"][i]
+            m = self.catalog["Modulation"][ind]
+            fc = self.catalog["Frequency(MHz)"][ind]
             mtype = m.split("(")[0]
             params = m[m.find("(")+1 : m.find(")")].split(",")
     
             # calculating modulations
             if mtype=="BPSK":
                 nc = float(params[0])
-                psd = psd_models.BPSK(self.frequency-fc, nc)
+                psd = psd_models.BPSK(freq-fc, nc)
             elif mtype=="BOCcos":
                 ns, nc = map(float, params)
-                psd = psd_models.BOCcos(self.frequency-fc, ns, nc)
+                psd = psd_models.BOCcos(freq-fc, ns, nc)
             elif mtype=="AltBOC":
                 ns, nc = map(float, params)
-                psd = psd_models.AltBOC(self.frequency-fc, ns, nc)
+                psd = psd_models.AltBOC(freq-fc, ns, nc)
             elif mtype=="MBOC":
                 nsA, nsB, ratio = [_floaty(x) for x in params]
-                psd = psd_models.TMBOC(self.frequency-fc, nsA, nsB, ratio)
+                psd = psd_models.TMBOC(freq-fc, nsA, nsB, ratio)
             elif mtype=="BOC":
                 ns, nc = map(float, params)
-                psd = psd_models.BOC(self.frequency-fc, ns, nc)
+                psd = psd_models.BOC(freq-fc, ns, nc)
             else:
                 print("Error: Signal modulation {} is not valid.".format(mtype))
             psd = np.nan_to_num(psd, nan=0)
     
             # indexes are different because csv starts at 1, not 0
-            SP[k] = power[k]*psd
+            SP[i] = power[ind]*psd
     
         # getting terms from the equation
         delta_nu = 0.2 * 1e6  # <-- channel width in Hz (extra)
-        factor = cc.c.value**2 / (cc.k_B.value * 4*np.pi * (self.frequency*1e6)**2)
+        factor = cc.c.value**2 / (cc.k_B.value * 4*np.pi * (freq*1e6)**2)
         gain_factor = 1e4  # <-- gain factor from Harpar paper (extra)
     
-        # final result in mK and cutting slice
-        Tb_factors = SP * (factor*gain_factor/delta_nu)
-        Tb_factors = Tb_factors[:, self.ifreq[0]:self.ifreq[1]]
-        return Tb_factors
+        # final result in mK
+        return SP * factor * gain_factor / delta_nu
 
-    # ----------------------------------------------- #
+
+    # -------------------------------------------------- #
 
