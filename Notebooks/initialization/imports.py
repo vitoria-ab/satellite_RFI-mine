@@ -14,7 +14,6 @@ import numpy as np
 ##---------------------------Scipy------------------------
 import scipy as sp
 import scipy.optimize as opt
-from scipy.interpolate import Rbf as Rbf
 ##---------------------------Panda------------------------
 import pandas as pd
 ##---------------------------Astropy------------------------

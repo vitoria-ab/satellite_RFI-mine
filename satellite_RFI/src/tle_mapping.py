@@ -10,8 +10,10 @@ get_date(unix=None, date=None, verbose=True)
 
 Classes
 -------
-SatBeamCalculator
+SatelliteMap
     __init__(self, path_TLEs, t_start, times, location, pointings, max_angle=None, verbose=True)
+    get_nearby_sats(self,angles,verbose=False)
+    get_satbeam(self,frequency,beam_model,verbose=False)
     _get_coordinates(self)
     _get_angular_separations(self, max_angle=None)
 """
@@ -39,7 +41,7 @@ import matplotlib.pyplot as plt
 ## ------------------- FUNCTIONS ------------------ ##
 # -------------------------------------------------- #
 
-class SatBeamCalculator(object):
+class SatelliteMap(object):
     """ (DESCRIPTION)
     
     Attributes (external)
@@ -51,7 +53,7 @@ class SatBeamCalculator(object):
     ? : ?
     """
     
-    def __init__(self, path_TLEs, t_start, times, location, pointings, max_angle=None, verbose=False):
+    def __init__(self, path_TLEs, t_start, times, location, pointings, max_angle=100, verbose=False):
         ''' Initializes the calculator with the satellite TLEs and observation time+location. '''
 
         # getting satellite TLEs
@@ -155,8 +157,6 @@ class SatBeamCalculator(object):
         
         # defining a suitable time array
         t = (self.t_start + self.times).unix
-        #if N_temp is not None:  # <-- to get fewer points; this isn't written yet
-        #    time_ast = Time(np.linspace(t[0], t[-1], N_temp), format="unix", scale="utc")
         time_ast = Time(t, format="unix", scale="utc")
         time = load.timescale(builtin=True).from_astropy(time_ast)
 
@@ -174,7 +174,8 @@ class SatBeamCalculator(object):
                 coord = np.stack((az.degrees,alt.degrees), axis=-1)
     
                 # save quantities
-                if np.all(mask):  continue
+                if np.all(mask):  
+                    continue
                 sats_visible[ID] = sat
                 coords.append(np.ma.masked_array(coord, mask=np.column_stack((mask, mask))))
                 dists.append(dist.m)
@@ -200,11 +201,12 @@ class SatBeamCalculator(object):
         point_az = np.deg2rad(self.pointings[:, 0])[None, :]
         point_alt = np.deg2rad(self.pointings[:, 1])[None, :]
         self.angseps = []
-        new_sats = [];  new_cons = []
+        new_sats = [];  new_cons = [];  new_dists = []
 
         for i,con in enumerate(self.cons):
             # getting coordinates
             angseps = []
+            dists_visible = []
             sats_visible = {}
             az = np.deg2rad(self.coords[i][:, :, 0])
             alt = np.deg2rad(self.coords[i][:, :, 1])
@@ -219,15 +221,18 @@ class SatBeamCalculator(object):
                 if np.all(angles[j].mask):  
                     continue  # <-- if totally masked, skip
                 sats_visible[ID] = self.sats[i][ID]
-                angseps.append(np.ma.masked_greater_equal(angles[j],max_angle))
+                angseps.append(angles[j])
+                dists_visible.append(self.dists[i][j])
 
             # convert and return
             if len(angseps)==0:  continue  # <-- if totally masked, skip
             new_sats.append(sats_visible);  new_cons.append(con)
             self.angseps.append(np.ma.stack(angseps))
-
+            new_dists.append(np.asarray(dists_visible))
+            
         self.sats = new_sats
         self.cons = new_cons
+        self.dists = new_dists
         return
 
 
@@ -335,13 +340,39 @@ def clean_satnames(path, verbose=False):
         with open(fname,"r") as f:  lines = f.readlines()
         for i,line in enumerate(lines):
             if (i%3)==0:  
-                lines[i] = line.rstrip("\n").replace(" ", "-").rstrip(" -") + "\n"
-            
+                name = line.rstrip("\n").replace(" ", "-").rstrip(" -") + "\n"
+                name = name.replace("--(", "(").replace("-(","(").replace("(","-(")
+                lines[i] = name
+                
         # rewrite file
         with open(fname,"w") as f:  
             f.writelines(lines)
     return
 
+
+# -------------------------------------------------- #
+
+def clean(name):
+    ''' Writes the satellite name compatible to the
+    way that it is written in the satellites.csv file.
+    
+    Parameters
+    ----------
+    name : string
+        Satellite name.
+        
+    Returns
+    -------
+    name : string
+        New satellite name.
+    '''
+
+    name = name.rstrip("-")  # <-- hyphens at the end
+    name = name.replace("--(", "(").replace("-(","(")  # <-- turns --( or -( into (
+    name = name.replace("(","-(")  # <-- turns all ( into -(
+
+    return name
+    
 
 # -------------------------------------------------- #
 

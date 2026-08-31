@@ -69,7 +69,7 @@ class SatelliteSimulation:
     # -------------------------------------------------- #
     
     def __init__(self, survey_info=None, path_catalog=None, path_beam=None, freq_range=None, 
-                 freq_slice=None, time_slice=None, verbose=False):
+                 freq_slice=None, time_slice=None, verbose=False, label_sats="NORAD ID"):
         ''' Initializes the simulation with some attributes and calculates everything that doesn't require alphas. '''
 
         # saving attributes
@@ -89,11 +89,16 @@ class SatelliteSimulation:
         self.frequency = self.frequency[idx_freq_range[0] : idx_freq_range[1]]
         self.ifreq = self._cut_range(self.frequency, freq_slice)
         self.itime = self._cut_range(self.time, time_slice)
+        if verbose:
+            t = self.time[self.itime[0]:self.itime[1]]
+            f = self.frequency[self.ifreq[0]:self.ifreq[1]]
+            print(f" - Shape of dimensions is Nt,Nf = {len(t)},{len(f)}")
         
         # getting beam response (B/r**2)
         if verbose:  print("Getting beam response...")
         f2 = pickle.load(open(path_beam,"rb",), encoding="latin1")
-        self.sat_beam = np.array(list(f2.values()))[:, self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]]
+        self.sat_beam = np.array(list(f2.values()))[:, 
+            self.ifreq[0]:self.ifreq[1], self.itime[0]:self.itime[1]]
         self.sats = list(f2.keys())
         if verbose:  
             print(f" - Number of satellites present: {len(self.sats)}")
@@ -107,11 +112,10 @@ class SatelliteSimulation:
             print(f" - Size of Tb_factors: {self.Tb_factors.nbytes / 1024**3:.3f} GB")
 
         # counting number of signals in each satellite and starting index of satellites
-        self.n_signals = np.array([len(catalog[catalog["NORAD ID"]==ID]) for ID in self.sats])
+        self.n_signals = np.array([len(catalog[catalog[label_sats]==sat]) for sat in self.sats])
         self.index_sats = np.concatenate(([0], np.cumsum(self.n_signals)[:-1]))
-        #if verbose:  print("Starting index of satellites: ", self.index_sats)
         self.tmp = np.empty_like(self.Tb_factors)  # <-- useful to spare memory
-        self.tmp2 = np.empty((len(self.sats),np.shape(self.Tb_factors)[1]))  # <-- useful to spare memory
+        self.tmp2 = np.zeros((len(self.sats),np.shape(self.Tb_factors)[1]))  # <-- useful to spare memory
         return
 
         
@@ -160,6 +164,11 @@ class SatelliteSimulation:
             mask_pix = np.where(self.obs <= threshold, True, False)
             mask_pix = (mask_pix & np.all(mask_pix,axis=0))
             mask = (mask & mask_pix)
+
+        # checking if any pixels are faulty
+        bad_pixels = (self.obs<=0)
+        mask[bad_pixels] = False
+        self.obs[bad_pixels] = 1  # <-- to prevent division by zero
         
         # applying mask to the matrices
         self.mask = mask
@@ -169,16 +178,12 @@ class SatelliteSimulation:
 
         # plotting
         if verbose:
-            plt.imshow(np.ma.masked_equal(self.obs.T * self.mask.T,0), aspect="auto")
-            plt.title("Masked obs_BGsub")
+            freq = self.frequency[self.ifreq[0]:self.ifreq[-1]]
+            t = self.time[self.itime[0]:self.itime[-1]]
+            dplot = np.ma.masked_array(self.obs_BGsub.T, mask=~self.mask.T)
+            plt.imshow(dplot, extent=[freq[0],freq[-1],t[-1],t[0]], aspect="auto")
             plt.colorbar()
             plt.show()
-            #print("Size of arrays:")
-            #print(" - Frequency: ", np.shape(self.frequency[self.ifreq[0]:self.ifreq[1]]))  # <-- frequency
-            #print(" - Time: ", np.shape(self.time[self.itime[0]:self.itime[1]]))  # <-- time
-            #print(" - Size of simulated Tb_factors: ", np.shape(self.Tb_factors))  # <-- signals x frequency
-            #print(" - Size of simulated sat_beam: ", np.shape(self.sat_beam))  # <-- cons x frequency x time
-            #print(" - Size of observations: ", np.shape(self.obs))  # <-- frequency x time
 
             
     # -------------------------------------------------- #
@@ -188,21 +193,14 @@ class SatelliteSimulation:
 
         # calculating simulation
         np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
-        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
-        self.sim = np.einsum('kij,ki->ij', self.sat_beam, power_term)
+        self.tmp2.fill(0)
+        for i_sat, start in enumerate(self.index_sats):
+            stop = start + self.n_signals[i_sat]
+            if stop>start:  self.tmp2[i_sat] = np.sum(self.tmp[start:stop], axis=0)
+        #np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
+        self.sim = np.einsum('kij,ki->ij', self.sat_beam*self.mask, self.tmp2)
 
         
-    # -------------------------------------------------- #
-    
-    def simulate_withmask(self, alphas):
-        ''' Calculates the simulation using the alphas given, and masking the simulation (if not done prior!). '''
-
-        # calculating simulation
-        np.multiply(self.Tb_factors, alphas[:,None], out=self.tmp)
-        power_term = np.add.reduceat(self.tmp, self.index_sats, axis=0, out=self.tmp2)
-        self.sim = np.einsum('kij,ki->ij', self.sat_beam*self.mask, power_term)
-
-    
     # -------------------------------------------------- #
     
     def _cut_range(self, array, limits):

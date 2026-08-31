@@ -17,7 +17,7 @@ import copy  # Required when using Nan values and py2
 from scipy.interpolate import Rbf
 
 # Personal file constucted
-from wiggleZ_area import area
+#from wiggleZ_area import area
 
 font = {
     "family": "serif",
@@ -69,19 +69,12 @@ class data_reduction:
     ):
 
         self.folder_name = folder_name
-
         self.file_name = file_name
-
         self.user_input = user_input
-
         self.folder_output = folder_output
-
         self.vis_data_loc = vis_data_loc
-
         self.gain_data_loc = gain_data_loc
-
         self.obs_data = self.get_obs_data(obs_data_loc)
-
         self.freqs, self.timestamps = self.freqs_and_time()
 
     def get_obs_data(self, obs_data_loc):

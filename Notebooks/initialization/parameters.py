@@ -28,21 +28,19 @@ beam_model = "emss"
 
 
 ## ----- PARAMETERS : FILES ----- ##
-# observation data
+# observation data (options: 1551055211 (original), 1553966342, 1554156377, 1556138397, 1562857793)
 block = 1551055211
-path_data = f"/idia/projects/hi_im/satellite_rfi/Testing/{block}/"
-path_observations = path_data + f"{block}_average_TOD_BG_model.p"
+path_data = "/idia/projects/hi_im/satellite_rfi/Testing/{}/".format(block)
+path_observations = path_data + "{}_average_TOD_BG_model.p".format(block)
 # simulation data
 folder = "simulation_data/"
-path_beam = folder + f"satbeams_{block}_{beam_model}_{freq_range[0]}-{freq_range[1]}.pkl"
-path_catalog = folder + f"catalogOLD_{block}.csv"  # <-- for v7
-path_nearby = folder + f"nearby_{block}.pkl"
+# calibration paths
+path_cali = "results_calibration/{}/".format(block)
 
 
 ## ----- PARAMETERS : KATDAL INFO ----- ##
-f = path_data + f"{block}_katdal_info.p"
-if sys.version_info.major == 2:  katdal = pickle.load(open(f,"rb"))
-elif sys.version_info.major == 3:  katdal = pickle.load(open(f,"rb"), encoding="latin1")
+f = path_cali + "katdal_info.p"
+katdal = pickle.load(open(f,"rb"), encoding="latin1")
 nd_s0 = katdal["nd_s0"]
 nd_s0_coords = katdal["nd_s0_coords"]
 nd_s0_coords2 = katdal["nd_s0_coords2"]
@@ -64,21 +62,21 @@ def my_name(folder, CF, deg=None, temp=None, pix=None, time_slice=(None,None)):
     ''' My file name to save alphas. '''
 
     # chi-sigma
-    CF_name = f"_{CF}"
+    CF_name = "_" + CF
 
     # masking
     mask_name = ""
     if deg is not None:  
-        if type(deg) is int:  mask_name += f"deg{deg}"
-        else:  mask_name += f"deg{deg[0]}"
-    if temp is not None:  mask_name += f"thermal{temp}"
-    if pix is not None:  mask_name += f"pix{pix}"
+        if type(deg) is int:  mask_name += "deg" + deg
+        else:  mask_name += "deg" + deg[0]
+    if temp is not None:  mask_name += "thermal" + temp
+    if pix is not None:  mask_name += "pix" + pix
     if (time_slice[0] is not None) or (time_slice[1] is not None):
         mask_name += "interval"
-        if time_slice[0] is not None:  mask_name += f"{time_slice[0]}"
-        else:  mask_name += f"{nd_s0[0]:.0f}"
-        if time_slice[1] is not None:  mask_name += f"-{time_slice[1]}"
-        else:  mask_name += f"-{nd_s0[-1]:.0f}"
+        if time_slice[0] is not None:  mask_name += str(time_slice[0])
+        else:  mask_name += "{:.0f}".format(nd_s0[0])
+        if time_slice[1] is not None:  mask_name += "-" + str(time_slice[1])
+        else:  mask_name += "-" + "{:.0f}".format(nd_s0[-1])
     if mask_name=="":  mask_name = "nomask"
 
     # getting final name
