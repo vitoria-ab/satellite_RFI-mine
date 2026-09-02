@@ -71,14 +71,15 @@ def generate_katdal_file(block, verbose=False):
 # -------------------------------------------------- #
 
 def _clean_outliers(data):
-        """ Auxiliary function; masks frequency channels 
-        containing values outside 3sigma of the mean. """
-    
-        mean=np.ma.mean(data);  std=np.ma.std(data)
-        outliers = (data < mean-3*std) | (data > mean+3*std)
-        channels = np.unique(np.ma.where(outliers)[1])
-        data.mask[:, channels] = True
-        return data
+    """ Auxiliary function; masks frequency channels 
+    containing values outside 3sigma of the mean. """
+
+    # (I THINK THIS IS JUST MASKING THE ZERO VALUES... IF SO, REMOVE THIS!)
+    mean=np.ma.mean(data);  std=np.ma.std(data)
+    outliers = (data < mean-3*std) | (data > mean+3*std)
+    channels = np.unique(np.ma.where(outliers)[1])
+    data.mask[:, channels] = True
+    return data
 
 
 # -------------------------------------------------- #
@@ -260,84 +261,83 @@ class DataReduction:
         code, and it would be useful to know what mask this is. '''
 
         # retrieving mask level 4
-        if masked:
-            path = ("/idia/projects/hi_im/raw_vis/katcali_output/" + 
-                    "level4_output/mask/{}_{}_level4_mask".format(self.block,ant))
-            mask = pickle.load(open(path,'rb'))
+        path = ("/idia/projects/hi_im/raw_vis/katcali_output/" + 
+                "level4_output/mask/{}_{}_level4_mask".format(self.block,ant))
+        mask = pickle.load(open(path,'rb'))
         
         # retrieving visibilities and masking (SARAO flags are not incorporated (?))
         path = "/idia/projects/hi_im/raw_vis/{}/{}/{}_{}".format(
-            DR.folder,self.block,self.block,ant)
-        visH = pickle.load(open(path + "h_vis_data", "rb"))["vis"]
-        visV = pickle.load(open(path + "v_vis_data", "rb"))["vis"]
+            self.folder,self.block,self.block,ant)
+        visH = pickle.load(open(path+"h_vis_data", "rb"), encoding="latin1")["vis"]
+        visV = pickle.load(open(path+"v_vis_data", "rb"), encoding="latin1")["vis"]
         if masked:
             visH = np.ma.masked_equal(visH, 0)
             visV = np.ma.masked_equal(visV, 0)
     
         # retrieving gains
         path = "/idia/projects/hi_im/raw_vis/katcali_output/level3_output/{}_{}".format(self.block,ant)
-        gainH = pickle.load(open(path + "h_level3_data","rb"))["gain_map"]
-        gainV = pickle.load(open(path + "v_level3_data","rb"))["gain_map"]
+        gainH = pickle.load(open(path + "h_level3_data","rb"), encoding="latin1")["gain_map"]
+        gainV = pickle.load(open(path + "v_level3_data","rb"), encoding="latin1")["gain_map"]
 
-        # cleaning outliers
+        # cleaning outliers -- for now, substituted with a zero mask!
         if masked:  
-            gainH = np.ma.array(gainH, mask=mask['Inten_mask'])
-            gainV = np.ma.array(gainV, mask=mask['Inten_mask'])
-        gainH = _clean_outliers(gainH)
-        gainV = _clean_outliers(gainV)
-
-        if masked:  return visH, visV, gainH, gainV, mask
-        else:  return visH, visV, gainH, gainV
+            gainH = _clean_outliers(gainH)
+            gainV = _clean_outliers(gainV)
+            #gainH = np.ma.array(gainH, mask=mask['Inten_mask'])  # <-- Brandon doesn't seem to use it in his thesis
+            #gainV = np.ma.array(gainV, mask=mask['Inten_mask'])
+            #gainH = np.ma.masked_equal(gainH,0)
+            #gainV = np.ma.masked_equal(gainV,0)
+        return visH, visV, gainH, gainV, mask
 
 
     # -------------------------------------------------- #
 
-    def calculate_f_bandpass(self, vis, smooth):
+    def get_frequency_bandpass(self, vis_min, smooth=None):
         ''' Determine the frequency bandpass from the raw visibility map. '''
 
-        # calculate initial quantities
-        # (THIS USED JUST MIN BEFORE, BUT IT'S A MASKED ARRAY!)
-        vis_min = np.ma.min(vis[self.nd_s0_pos, self.ifreq[0]:self.ifreq[1]], axis=0)
+        # estimating smooth parameters from noise -- for now not using this
+        if smooth is None:
+            diff = np.diff(vis_min)
+            noise = 1.4826 * np.ma.median(np.ma.abs(diff-np.ma.median(diff))) / np.sqrt(2)
+            smooth = vis_min.size * noise**2 * np.array([1000,200,50,50])
+            print(smooth)
+
+        # iteratively interpolating and clipping outliers
         weights = np.ones_like(vis_min)
-    
         for s in smooth:
-            # interpolating
             func = sp.interpolate.UnivariateSpline(
                 x=self.frequency_cut, y=vis_min, w=weights, k=5, s=s)
-            res = vis_min - spl(self.frequency_cut)
-
-            # clipping outliers
-            clipping = SigmaClip(sigma_upper=1,sigma_lower=20,maxiters=5)
-            weights = (~clipping(res).mask).astype(float)
+            res = vis_min - func(self.frequency_cut)
+            clip = SigmaClip(sigma_upper=1, sigma_lower=20, maxiters=5)
+            weights = (~clip(res).mask).astype(float)
     
         return func(self.frequency_cut)
 
 
     # -------------------------------------------------- #
 
-    def combine_gain_curves(self, gain, bandpass, freq_slice, smoothing=0.04):
+    def combine_gain_curves(self, gain, bandpass, norm, freq_slice):
         """Replace a frequency range with the smooth gain curve and fit a spline."""
 
         # colapsing arrays into the necessary final quantities
-        gain = np.ma.mean(gain, axis=0)
-        gain /= np.ma.max(gain)
-        bandpass /= np.ma.max(bandpass)
+        gain = np.ma.mean(gain,axis=0) / np.ma.max(np.ma.mean(gain,axis=0))
+        bandpass = norm * bandpass / np.ma.max(bandpass)
 
         # get indexes in the interpolated and original array
-        start_bp = np.searchsorted(self.frequency_cut, freq_slice[0])
-        end_bp = np.searchsorted(self.frequency_cut, freq_slice[1])
         start_g = np.searchsorted(self.frequency, freq_slice[0])
         end_g = np.searchsorted(self.frequency, freq_slice[1])
+        start_bp = np.searchsorted(self.frequency_cut, freq_slice[0])
+        end_bp = np.searchsorted(self.frequency_cut, freq_slice[1])
 
         # get final combined gain curve
         gain_combined = np.ma.concatenate((
             gain[:start_g],bandpass[start_bp:end_bp], gain[end_g:]))
 
         # getting final interpolated gain curve
-        weights = (~np.ma.getmaskarray(gain_combined)).astype(float)
+        valid = ~np.ma.getmaskarray(gain_combined)
         gain_final = sp.interpolate.UnivariateSpline(
-            x=self.frequency, y=gain_combined, w=weights, k=5, s=smoothing)
-        return gain_final
+            x=self.frequency[valid], y=gain_combined.data[valid], k=5, s=0.04)
+        return gain_combined, gain_final
 
     
     # -------------------------------------------------- #

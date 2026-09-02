@@ -189,4 +189,5 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 (*OBJECTIVES: Igual a semana passada*)
 - Gained access to the calibration data, started debugging the calibration code.
 - Finished calibration of the background temperatures except for the constant additive value (however, only debugged for the first antenna so far due to ILIFU's problems).
+- Finished calibration of the bandpass: several problems were arising but were since solutioned, and managed to retrieve exactly the same calibration plots as Brandon for the m000 antenna. 
 - Continued reading thesis bibliography. 
