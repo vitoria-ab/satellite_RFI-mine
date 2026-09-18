@@ -12,6 +12,31 @@ show_parameters : prints the parameter information.
 from imports import *
 
 
+
+## ----- PARAMETERS : TELESCOPE MODEL ----- ##
+# observation information
+block = 1551055211
+antenna = "m000"
+# beam model (options: "emss", "cosine" or "eidos")
+beam_model = "emss"
+
+
+## ----- PARAMETERS : FILES ----- ##
+# calibration paths
+path_old = "/idia/projects/hi_im/satellite_rfi/Testing/{}/".format(block)
+path_old = "results_calibration_brandon/"  # <-- personal computer
+path_source = "katcali_data/{}/".format(block)
+path_calibration = "results_calibration/{}/".format(block)
+path_simulating = "simulating_data/"
+# TLE data (specific date of TLE's to use; maybe retrieve the correct TLEs if none are given) 
+path_TLEs = {1551055211: "2019_02_21_tle/",
+             1553966342: "2019_03_25_tle/", 
+             1554156377: "2019_03_25_tle/",
+             1556138397: "2019_04_22_tle/",
+             1562857793: "2019_07_09_tle/"}
+
+
+
 ## ----- PARAMETERS : FITTING ----- ##
 # (the rest of the parameters that we are varying are within the notebooks themselves)
 # frequency window for the alpha fitting
@@ -22,24 +47,9 @@ freq_range = [1000, 1500]
 time_average = None
 
 
-## ----- PARAMETERS : SATELLITE MODEL ----- ##
-# beam model (options: "emss", "cosine" or "eidos")
-beam_model = "emss"
-
-
-## ----- PARAMETERS : FILES ----- ##
-# observation data (options: 1551055211 (original), 1553966342, 1554156377, 1556138397, 1562857793)
-block = 1551055211
-path_data = "/idia/projects/hi_im/satellite_rfi/Testing/{}/".format(block)
-path_observations = path_data + "{}_average_TOD_BG_model.p".format(block)
-# simulation data
-folder = "simulation_data/"
-# calibration paths
-path_cali = "results_calibration/{}/".format(block)
-
 
 ## ----- PARAMETERS : KATDAL INFO ----- ##
-f = path_cali + "katdal_info.p"
+f = path_calibration + "katdal_info.p"
 katdal = pickle.load(open(f,"rb"), encoding="latin1")
 nd_s0 = katdal["nd_s0"]
 nd_s0_coords = katdal["nd_s0_coords"]
@@ -48,10 +58,6 @@ nd_s0_pos = katdal["nd_s0_pos"]
 frequency = katdal["frequency"]
 del katdal
 
-
-## ----- PARAMETERS : OBSERVATION ----- ##
-TL_longitude = 21.0 + 26.0 / 60.0 + 38.00 / 3600.0
-TL_latitude = -(30.0 + 42.0 / 60.0 + 47.41 / 3600.0)
 
 
 ## ---------------------------- ##
@@ -62,15 +68,15 @@ def my_name(folder, CF, deg=None, temp=None, pix=None, time_slice=(None,None)):
     ''' My file name to save alphas. '''
 
     # chi-sigma
-    CF_name = "_" + CF
+    CF_name = "_" + str(CF)
 
     # masking
     mask_name = ""
     if deg is not None:  
-        if type(deg) is int:  mask_name += "deg" + deg
+        if type(deg) is int:  mask_name += "deg" + str(deg)
         else:  mask_name += "deg" + deg[0]
-    if temp is not None:  mask_name += "thermal" + temp
-    if pix is not None:  mask_name += "pix" + pix
+    if temp is not None:  mask_name += "thermal" + str(temp)
+    if pix is not None:  mask_name += "pix" + str(pix)
     if (time_slice[0] is not None) or (time_slice[1] is not None):
         mask_name += "interval"
         if time_slice[0] is not None:  mask_name += str(time_slice[0])
@@ -85,54 +91,19 @@ def my_name(folder, CF, deg=None, temp=None, pix=None, time_slice=(None,None)):
 
 ## ---------------------------- ##
 
-def brandon_name(folder, CF, deg=None, temp=None, pix=None, time_slice=[None,None]):
-    ''' Brandon's file name to save alphas, according to the parameters in the parameters.py file. '''
-    
-    # frequency range
-    freq_name = f"{freq_slice[0]}-{freq_slice[1]}_"
-
-    # time range
-    t_name = []
-    for i,t in enumerate(time_slice):
-        if t is None:  t_name.append(str(np.round(nd_s0[-i], 2)))
-        else:  t_name.append(str(t))
-    time_name = f"{t_name[0]}-{t_name[1]}_"
-
-    # time averaging
-    if time_average is not None:  time_average_name = f"time_average_{time_average}_"
-    else:  time_average_name = ""
-
-    # chi-sigma
-    if CF == "C1":  CF_name = "residual_"
-    elif CF == "C2":  CF_name = "fractional_"
-
-    # masking
-    mask_name = ""
-    if deg is not None:  mask_name += f"degree-{deg}_"
-    if temp is not None:  mask_name += f"thermal-{temp}_"
-    if (time_slice[0] is not None) or (time_slice[1] is not None):  mask_name += "temporal_"
-    if pix is not None:  mask_name += f"pix_timeline-{pix}_"
-    if mask_name=="":  mask_name = "no-mask_"
-
-    # show ideal file name
-    fname = (path_data + folder + f"{block}_" + freq_name + time_name + mask_name + 
-             CF_name + time_average_name + ".p")
-    return fname
-
-## ---------------------------- ##
-
 def show_parameters(CF=None, deg=None, temp=None, pix=None, time_slice=[None,None], plotting=False):
     ''' Show parameters in the parameters.py file, formatted correctly. '''
     
     # block
-    print(f"Block: {block}")
+    print("Block: {}".format(block))
+    print("Antenna: {}".format(antenna))
 
     # frequency range
     f_write = []
     for f in freq_slice:
         if f is None:  f_write.append("inf")
         else:  f_write.append(str(f))
-    print(f"Frequency range: {f_write[0]} - {f_write[1]} MHz")
+    print("Frequency range: {} - {} MHz".format(*f_write))
 
     # stop here if i'm plotting all the results i got so far
     if plotting: return
@@ -142,7 +113,7 @@ def show_parameters(CF=None, deg=None, temp=None, pix=None, time_slice=[None,Non
     for i,t in enumerate(time_slice):
         if t is None:  t_write.append("inf")
         else:  t_write.append(str(t))
-    print(f"Time range: {t_write[0]} - {t_write[1]} seconds")
+    print("Time range: {} - {} seconds".format(*t_write))
 
     # chi-sigma
     print("The cost function denominator will be:",end=" ")
@@ -152,10 +123,10 @@ def show_parameters(CF=None, deg=None, temp=None, pix=None, time_slice=[None,Non
 
     # masking
     msg = "Masking: "
-    if deg is not None:  msg += f"Angular ({deg} deg), "
-    if temp is not None:  msg += f"Thermal ({temp} K), "
+    if deg is not None:  msg += "Angular ({} deg), ".format(deg)
+    if temp is not None:  msg += "Thermal ({} K), ".format(temp)
     if (time_slice[0] is not None) or (time_slice[1] is not None):  msg += "Temporal (shown above), "
-    if pix is not None:  msg += f"Pixel timeline (Tmax/{pix}), "
+    if pix is not None:  msg += "Pixel timeline (Tmax/{}), ".format(pix)
     if msg=="Masking: ":  msg += "None, "
     print(msg[:-2])
     return

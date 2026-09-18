@@ -66,7 +66,7 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 
 
 # Logs
-### WEEK 5: 9 - 16 of april
+## WEEK 5: 9 - 16 of april
 (*OBJECTIVES: Getting graphs, getting information from the individual satellites, performing fitting with alphas from each satellite instead of each constellation.*) 
 - Visualized what the current files of satellite information contain; 
 - Retrieved necessary info from file "individual_satellite_angular_positions" (it has the individual satellites instead of the constellations' beam response) and saved it in a new file "satellite_angular_positions" (much quicker to open); 
@@ -74,50 +74,50 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Rewrote N4 and simulations in order to have a simulation not defined by the mask; that way we only have to initialize once for each dataset and every new mask does not require a new initialization (which is the part that takes the longest). Still missing time interval! 
 - Began simulation with individual satellites. Created a new file `simulation` that modifies the file `simulationv0` but with individual satellites. For now, managed to rewrite `_get_beam_response` (to get the new file with individual satellites) and managed to get the new catalog. 
 
-### WEEK 6: 16 - 23 of april
+## WEEK 6: 16 - 23 of april
 (*OBJECTIVES: repeat procedure with equal alphas for satellites of the same constellation.*)
 - Finished correcting the initialization function; I didn't alter anything in the `execute` function because it's not necessary.
 - Altered the cost function in order to use only the 21 alphas (same situation as the constellations).
 - Running the simulation - found some errors, currently debugging.
 
-### WEEK 7: 23 - 30 of april
+## WEEK 7: 23 - 30 of april
 (*OBJECTIVES: repeat procedure with equal alphas for satellites of the same constellation.*)
 - Rewrote catalog retrieval, now the signals should have the same order as the previous catalog (makes comparing easier).
 - Debugged: the final value of the cost function was incorrect, so I was checking to see if everything is the same between the two codes. Some corrections in the ordering were done in the calculations, and then in the ordering of the alphas in order to match, and it was solved.
 - Generated values for all masks using the new code, retrieved the results from the paper but now treating each satellite individually in the code (and just considering the alpha values to be the same for satellites within the same constellation). The graphs are the same.
 - Ran complete simulation; took to long, stopped midway, needs to be paralelized! 
 
-### WEEK 8: 30 of april - 7 of may
+## WEEK 8: 30 of april - 7 of may
 (*OBJECTIVES: quantify difference between values obtained in v0 and v1, run the complete code, see if paralelization is possible or if there are other faster methods, such as ones which use jacobian and hessian.*)
 - Rewrite the matrices that i have right now into a 2d matrix instead of 3d by collapsing the time x frequency dimensions into a single dimension of pixels, so that the final simulations factors are pixels x alphas and observations are just pixels (1d array, much more memory efficient)!
 
-### WEEK 9: 7 - 14 of may
+## WEEK 9: 7 - 14 of may
 (*OBJECTIVES: Since this problem is essentially minimizing a system of equations A.alpha - b, it seems to be possible to use least squares directly (instead of through optimization algorithms). It might save a lot of time, so I'm going to rewrite the problem for the constellations using this paradigm and check if they recover the same alphas.*)
 - Altered the plotting notebooks so they show the absolute errors of the new alpha values vs. the paper values.
 - Wrote *v2*, which uses the constellation paradigm from *v0* but with a new optimization - lsq_linear; as such should be faster and more reliable while still recovering the same results.
 - Recovered results in *v2*, they are all consistent with the graphs from the paper.
 
-### WEEK 10: 14 - 21 of may
+## WEEK 10: 14 - 21 of may
 (*OBJETIVES: Run optimization with all of the satellites, and try to find what's happening with the paper's results.*)
 - TO DO: Check if the files I'm using for reference recover the same results as the paper; check the pdfs of graphs! 
 - Cleaned the optimizing code; now the parameters that are constantly changing are in the beginning of the notebook (instead of in *parameters.py*) so I don't need to change that file all the time, and the optimizing functions are described within the notebook (makes sense, since they are a separate object from the simulation). 
 - Changed `lsq_linear` to `nnls` since that is the boundary condition that we want and it uses a more specialized code; the results in *v2* remained the same. 
 - Wrote *v3*, which uses this new optimization with all of the satellites; using `nnls` the code went from 30mins to 3mins. Generated all of the results. 
 
-### WEEK 11+12: 21 - 4 of june
+## WEEK 11+12: 21 - 4 of june
 (*OBJECTIVES: Break to complete some Uni work*)
 
-### WEEK 13: 4 - 11 of june
+## WEEK 13: 4 - 11 of june
 (*OBJECTIVES: Confirmar cenas da Iara em que alguns sinais são zero; ver se com as priors da Iara fica bem na mesma; tentar ver a correspondência com os satélites de cada constelação. Matriz de Fisher para estimar os erros? - não fazer agora.*)  
 - Created a catalog of satellites and generations in each constellation - complete guide (includes satellites that have been decommisioned since), with several IDs, and whether they are present in Brandon and Iara's work. Currently incomplete.
 - Created a catalog of constellation signals - complete guide, with modulation, rate, and central frequency, and whether they match Brandon's specification. Currently incomplete.
 
-### WEEK 14: 11 - 18 of june
+## WEEK 14: 11 - 18 of june
 (*OBJETIVES: Continuar semana anterior*)
 - Continued work on satellite and signal catalog; currently missing just SBAS satellites and signals.
 - Rewrote *psd_models.py* file with more accurate signals (added MBOC and lumped CBOC and TMBOC with it, and corrected BOC and BOCcos) and tested it against the old signals - differences are in the order of 1% max in some specific cases and wavelengths but should be fine overall.
 
-### WEEK 15: 18 - 25 of june
+## WEEK 15: 18 - 25 of june
 (*OBJETIVES: Continuar semana anterior*)
 - Finished satellite and signal catalog (up-to-date) and added to directory in the */tables/* folder.
 - Created a catalog of $k$ numbers of each GLONASS satellite (relevant for some specific signals for which the central frequency is not equal but has an offset in each satellite given by $k$); this is correct only for the specific date of the observation of February 25, 2019.
@@ -132,14 +132,14 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Found that several satellites have very weird beam responses (unphysical maps that are just quadratic or linear, where it should have the erratic signature of the MeerKAT pointing strategy). One of these was linked to the very big alpha value - makes sense, given that it is a small signal very easily fitted to noise! For now the code is still using these weird satellites, but this should be inspected!
 - Organized the information so that the required information (apart from the observations) is stored in the *data/* folder.
 
-### WEEK 17: 2 - 9 of july
+## WEEK 17: 2 - 9 of july
 (*OBJECTIVE: Implementar código com as novas listas*)
 - Altered code extensively in *v4*: changed some variable names, re-organized so that the observations can be given at a later step (instead of being automatically initialized with observations), and re-wrote the code that creates matrix A; checked results and they are almost the same as v3. 
 - Created *v5* which uses the new signal catalog; results are quite worse than in v4 which might be due to a heavier dependence in some weird maps from satbeam. 
 - Added time-slice graphs to N4. 
 - Created *N2_angular_positions.ipynb* which will perform part 2 of the code; currently wrote the first part (TLE download from celestrak and initial formatting), and the beginning of the second (satellite angular positions compared to the telescope). I'm also writing complementary code in *tle_mapping.py* (which will have stuff from *tools.py* and from *check_satellite.py*). 
 
-### WEEK 18: 9 - 16 of july
+## WEEK 18: 9 - 16 of july
 (*OBJECTIVE: Implementar parte 2 do código, escrever abstract para ENAA*)
 - Wrote abstract for ENAA.
 - Finished *N2_angular_positions.ipynb* and *tle_mapping.py* - the resulting satbeam matrices are slightly different from those obtained previously which is probably due to some incorrect coding, and now the satellites further than 100deg and below the horizon are correctly filtered out of the list.
@@ -148,7 +148,7 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Organized the folders.
 - Created **v7**, which uses the old list + new satbeam maps for comparison with v6. The results are almost the same, except it has a small region where GLONASS should emit, and yet its best fits includes no GLONASS satellites! I think the best thing to do now would be to see which specific signals in v4 and v7 are responsible for the better fitting which we can't get in v6, and see if they correspond to some signal which we should have included but don't.
 
-### WEEK 19: 16 - 23 of july
+## WEEK 19: 16 - 23 of july
 (*OBJECTIVES: Tentar ver o que está errado com o código, escrever relatório para a extensão da bolsa, fazer apresentação para mostrar dia 24 ao josé fonseca.*)
 - Finishing writing v4 in a way that is compatible with the final codes, and created the final notebooks N3a, N3b and N3c (which can be run with any versions of the simulation data, and so can be just used as default from now on). 
 - Found a coding error in N2 which made the satbeam maps slightly wrong; now they are corrected. Redid v6 and v7, and results are the same with only a slightly better final minimized value for CF. 
@@ -156,7 +156,7 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Overall, different masks equal different best-case scenarios for the fitting (old catalog vs. new catalog) using the new satbeams (and this is the correct one, so it doesn't make sense to compare with the old satbeams).
 - Wrote scholarship report. 
 
-### WEEK 20: 23 - 30 of july
+## WEEK 20: 23 - 30 of july
 (*OBJETIVES: Fazer apresentação, fazer cenas que forem faladas.*) 
 - Made presentation for MeerKLASS. 
 - Retrieved missing GLONASS satellites from Space-Track.org, in order to include them on the TLEs. Re-ran the code and fitting doesn't need to be repeated, since they are always below the horizon during observations. 
@@ -164,23 +164,23 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Results for **v8** are the same, and we achieve better alphas for the same simulated signal which is good, but with various degrees of sucess (higher RR means harder regularization).
 - Created satbeam files for 1553966342; added 2 missing GLONASS satellites (ended up not mattering for the fit), and correcting beidou names (only M1,M2 appeared). It won't be necessary to do an angular 5deg, since there is a satellite that is always below that value and so we wouldn't get almost anything.
 
-### WEEK 21: 30 of july - 6 of august
+## WEEK 21: 30 of july - 6 of august
 (*OBJECTIVES: Fazer fit com as outras observações, melhorar a visualização dos alphas, ver se a calibração pode ser corrida para outras antenas.*)
 - Fitted some further observations (that were already calibrated): 1553966342, 1554156377, 1556138397 (stopped midway because the observations are weird).
 - Currently performing fit on all observational blocks for which we have the calibration (stated in the paper); check if what we are fitting is per antenae or if it is a mean of all antennae responses. 
 
-### WEEK 22: 6 - 13 of august
+## WEEK 22: 6 - 13 of august
 (*OBJETIVES: Try to use other observations besides Brandon's, check calibration notebook, visualize more clearly results*)
 - Gave a look at the calibration notebook, and most of the quantities I can recover except specifically the calibrated visibility maps of each antenna! However, the calibrated visibility needs to be done from scratch, and so I'm waiting for access to the necessary folders.
 - Began to generate the table with all results together in a single DataFrame.
 
-### WEEK 23: 13 - 20 of august
+## WEEK 23: 13 - 20 of august
 (*OBJECTIVES: Finish calibration notebook, finish visualization of all results*)
 - Generated the table of all results obtained and saved them in the `results/{block}_results.csv` files.
 - Chose the best RR values for each block + mask + CF and saved them in the `results/bestRRs.csv` file.
 - Debugged code - sat.simulate() was working incorrectly (using some extra empty satellites when it should skip them) and so the cost function values were a bit different than supposed to; I think the plots were mostly correct, and the optimization wasn't affected since it was performed with the matrix A and not the simulate() function.
 
-### WEEK 24: 21 - 27 of august
+## WEEK 24: 21 - 27 of august
 (*OBJECTIVES: Ler bibliografia para a tese, ver se os alphas de satélites longe contribuem alguma coisa significativa, ver como adicionar barras de erro, ver calibração por completo!*)
 - Finished rewriting calibration, but without any debugging since I don't have yet access to the data.
 - Started reading thesis bibliography.
@@ -190,4 +190,13 @@ These steps need to be performed for both singularities PY2 and PY3 (at the end 
 - Gained access to the calibration data, started debugging the calibration code.
 - Finished calibration of the background temperatures except for the constant additive value (however, only debugged for the first antenna so far due to ILIFU's problems).
 - Finished calibration of the bandpass: several problems were arising but were since solutioned, and managed to retrieve exactly the same calibration plots as Brandon for the m000 antenna. 
-- Continued reading thesis bibliography. 
+- Continued reading thesis bibliography.
+
+## WEEK 26(A): 3 - 7 of september
+(*OBJETIVES: Continue thesis bibliography (!!), prepare ENAA presentation on RFI (!!!), continue calibration (!), and continue CheckSatellites notebook (!).*)
+1. Prepare ENAA presentation:
+    - ILIFU was down, so in order to work from home I created a similar set-up (but in anaconda instead of using a singularity, and taking just what was necessary from the singularity). This means that maybe I can write this into a dependency file useful for github!
+    - Downloaded raw data from ILIFU (meant installing Globus) and Github. 
+2. Continue calibration rewrite:
+    - Re-wrote calibration so that background Ts are prepared one at a time instead of all downloaded at once, and re-wrote bandpass calculation so that it's almost completely automatic - the only thing I need to manually calibrate is how strong the smoothing is, and I can do that with a single parameter now (instead of changing each of the 4 parameters separately). However, now the m000 result is slightly different. 
+    - Completed calibration, but could not reproduce Brandon's results! Might have to do with the mask (level 4 vs. zeros only) or with the fact that the gain seems to be missing some extra columns near 1400 MHz that Brandon had completed.
